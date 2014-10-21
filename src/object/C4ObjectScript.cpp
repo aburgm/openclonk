@@ -824,16 +824,17 @@ static bool FnCreateMenu(C4Object *Obj, C4Def *pDef, C4Object *pCommandObj,
 	return true;
 }
 
-const int C4MN_Add_ImgRank     =   1,
-          C4MN_Add_ImgIndexed  =   2,
-          C4MN_Add_ImgObjRank  =   3,
-          C4MN_Add_ImgObject   =   4,
-          C4MN_Add_ImgTextSpec =   5,
-          C4MN_Add_ImgColor    =   6,
-          C4MN_Add_MaxImage    = 127, // mask for param which decides what to draw as the menu symbol
-          C4MN_Add_PassValue   = 128,
-          C4MN_Add_ForceCount  = 256,
-          C4MN_Add_ForceNoDesc = 512;
+const int C4MN_Add_ImgRank         =   1,
+          C4MN_Add_ImgIndexed      =   2,
+          C4MN_Add_ImgObjRank      =   3,
+          C4MN_Add_ImgObject       =   4,
+          C4MN_Add_ImgTextSpec     =   5,
+          C4MN_Add_ImgColor        =   6,
+          C4MN_Add_ImgPropListSpec =   7,
+          C4MN_Add_MaxImage        = 127, // mask for param which decides what to draw as the menu symbol
+          C4MN_Add_PassValue       = 128,
+          C4MN_Add_ForceCount      = 256,
+          C4MN_Add_ForceNoDesc     = 512;
 
 #ifndef _MSC_VER
 #define _snprintf snprintf
@@ -858,7 +859,7 @@ static bool FnAddMenuItem(C4Object *Obj, C4String * szCaption, C4String * szComm
 	{
 		const char * s = FnStringPar(szCaption);
 		const char * sep = strstr(s, "%s");
-		if (sep)
+		if (sep && pDef)
 		{
 			strncpy(caption, s, Min<intptr_t>(sep - s,256));
 			caption[Min<intptr_t>(sep - s,256)] = 0;
@@ -1071,6 +1072,16 @@ static bool FnAddMenuItem(C4Object *Obj, C4String * szCaption, C4String * szComm
 				return false;
 		}
 		*caption = '\0';
+	}
+	break;
+
+	case C4MN_Add_ImgPropListSpec:
+	{
+		C4PropList *gfx_proplist = XPar.getPropList();
+		fctSymbol.Create(iSymbolSize,iSymbolSize);
+		uint32_t dwClr = XPar.getInt();
+		if (!Game.DrawPropListSpecImage(fctSymbol, gfx_proplist))
+			return false;
 	}
 	break;
 
@@ -2183,8 +2194,7 @@ static bool FnSetMeshMaterial(C4Object *Obj, C4String* Material, int iSubMesh)
 	const StdMeshMaterial* material = ::MeshMaterialManager.GetMaterial(Material->GetData().getData());
 	if (!material) return false;
 
-	StdSubMeshInstance& submesh = Obj->pMeshInstance->GetSubMesh(iSubMesh);
-	submesh.SetMaterial(*material);
+	Obj->pMeshInstance->SetMaterial(iSubMesh, *material);
 	return true;
 }
 
@@ -2269,6 +2279,10 @@ static bool FnCreateParticleAtBone(C4Object* Obj, C4String* szName, C4String* sz
 	const float dy = ty + ry*thgt;
 	x.x += dx;
 	x.y += dy;
+	// This was added in the block before and could also just be removed from tx/ty.
+	// However, the block would no longer be equal to where it came from.
+	x.x -= fixtof(Obj->fix_x);
+	x.y -= fixtof(Obj->fix_y);
 	// Finally, apply DrawTransform to the world coordinates
 	StdMeshMatrix DrawTransform;
 	if(Obj->pDrawTransform)
@@ -2307,6 +2321,7 @@ static bool FnCreateParticleAtBone(C4Object* Obj, C4String* szName, C4String* sz
 	valueLifetime.Set(lifetime);
 
 	// cast
+	if (amount < 1) amount = 1;
 	::Particles.Create(pDef, valueX, valueY, valueSpeedX, valueSpeedY, valueLifetime, properties, amount, Obj);
 #endif
 	// success, even if not created
@@ -2401,6 +2416,7 @@ C4ScriptConstDef C4ScriptObjectConstMap[]=
 	{ "C4MN_Add_ImgObjRank"    ,C4V_Int,          C4MN_Add_ImgObjRank},
 	{ "C4MN_Add_ImgObject"     ,C4V_Int,          C4MN_Add_ImgObject},
 	{ "C4MN_Add_ImgTextSpec"   ,C4V_Int,          C4MN_Add_ImgTextSpec},
+	{ "C4MN_Add_ImgPropListSpec",C4V_Int,         C4MN_Add_ImgPropListSpec},
 	{ "C4MN_Add_ImgColor"      ,C4V_Int,          C4MN_Add_ImgColor},
 	{ "C4MN_Add_PassValue"     ,C4V_Int,          C4MN_Add_PassValue},
 	{ "C4MN_Add_ForceCount"    ,C4V_Int,          C4MN_Add_ForceCount},
@@ -2469,9 +2485,11 @@ C4ScriptConstDef C4ScriptObjectConstMap[]=
 	{ "C4AVP_R"                   ,C4V_Int,      C4AVP_R },
 	{ "C4AVP_AbsX"                ,C4V_Int,      C4AVP_AbsX },
 	{ "C4AVP_AbsY"                ,C4V_Int,      C4AVP_AbsY },
+	{ "C4AVP_Dist"                ,C4V_Int,      C4AVP_Dist },
 	{ "C4AVP_XDir"                ,C4V_Int,      C4AVP_XDir },
 	{ "C4AVP_YDir"                ,C4V_Int,      C4AVP_YDir },
 	{ "C4AVP_RDir"                ,C4V_Int,      C4AVP_RDir },
+	{ "C4AVP_AbsRDir"             ,C4V_Int,      C4AVP_AbsRDir },
 	{ "C4AVP_CosR"                ,C4V_Int,      C4AVP_CosR },
 	{ "C4AVP_SinR"                ,C4V_Int,      C4AVP_SinR },
 	{ "C4AVP_CosV"                ,C4V_Int,      C4AVP_CosV },

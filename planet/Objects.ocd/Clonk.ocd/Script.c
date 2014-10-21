@@ -147,29 +147,29 @@ protected func Death(int killed_by)
 		return;
 	
 	// Some effects on dying.
-	if(gender == 0)
-		Sound("Die");
-	else
-		Sound("FDie");
+	if (!this.silent_death)
+	{
+		if(gender == 0)
+			Sound("Die");
+		else
+			Sound("FDie");
+			
+		DeathAnnounce();
+	}
 	CloseEyes(1);
 	
-	DeathAnnounce();
-	return;
+	return true;
 }
 
-protected func Destruction()
+protected func Destruction(...)
 {
 	_inherited(...);
 	// If the clonk wasn't dead yet, he will be now.
-	if (GetAlive())
-		GameCallEx("OnClonkDeath", this, GetKiller());
-	// If this is the last crewmember, do broadcast.
-	if (GetCrew(GetOwner()) == this)
-	if (GetCrewCount(GetOwner()) == 1)
-		// Only if the player is still alive and not yet elimnated.
-			if (GetPlayerName(GetOwner()))
-				GameCallEx("RelaunchPlayer", GetOwner(), GetKiller());
-	return;
+	// Always kill clonks first. This will ensure relaunch scripts, enemy kill counters, etc. are called
+	// even if clonks die in some weird way that causes direct removal
+	// (To prevent a death callback, you can use SetAlive(false); RemoveObject();)
+	if (GetAlive()) { this.silent_death=true; Kill(); }
+	return true;
 }
 
 protected func DeepBreath()
@@ -567,28 +567,31 @@ func QueryCatchBlow(object obj)
 	return _inherited(obj, ...);
 }
 
-local gender;
+local gender, skin, skin_name;
 
-func SetSkin(int skin)
+func SetSkin(int new_skin)
 {
+	// Remember skin
+	skin = new_skin;
+	
 	//Adventurer
 	if(skin == 0)
-	{	SetGraphics();
+	{	SetGraphics(skin_name = nil);
 		gender = 0;	}
 
 	//Steampunk
 	if(skin == 1)
-	{	SetGraphics("Steampunk");
+	{	SetGraphics(skin_name = "Steampunk");
 		gender = 1; }
 
 	//Alchemist
 	if(skin == 2)
-	{	SetGraphics("Alchemist");
+	{	SetGraphics(skin_name = "Alchemist");
 		gender = 0;	}
 	
 	//Farmer
 	if(skin == 3)
-	{	SetGraphics("Farmer");
+	{	SetGraphics(skin_name = "Farmer");
 		gender = 1;	}
 
 	RemoveBackpack(); //add a backpack
@@ -599,15 +602,38 @@ func SetSkin(int skin)
 }
 func GetSkinCount() { return 4; }
 
+func GetSkin() { return skin; }
+func GetSkinName() { return skin_name; }
+
+//Portrait definition of this Clonk for messages
+func GetPortrait()
+{
+	return this.portrait ?? { Source = GetID(), Name = Format("Portrait%s", skin_name ?? ""), Color = GetColor() };
+}
+
+func SetPortrait(proplist custom_portrait)
+{
+	this.portrait = custom_portrait;
+	return true;
+}
+
 /* Scenario saving */
 
 func SaveScenarioObject(props)
 {
 	if (!inherited(props, ...)) return false;
+	// Skins override mesh material
+	if (skin)
+	{
+		props->Remove("MeshMaterial");
+		props->AddCall("Skin", this, "SetSkin", skin);
+	}
 	// Direction is randomized at creation and there's no good way to find
 	// out if the user wanted that specific direction. So just always save
 	// it, because that's what scenario designer usually wants.
 	if (!props->HasProp("Dir")) props->AddCall("Dir", this, "SetDir", GetConstantNameByValueSafe(GetDir(),"DIR_"));
+	// Custom portraits for dialogues
+	if (this.portrait) props->AddCall("Portrait", this, "SetPortrait", this.portrait);
 	return true;
 }
 

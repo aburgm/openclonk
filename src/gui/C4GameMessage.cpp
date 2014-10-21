@@ -27,7 +27,7 @@
 #include <C4Player.h>
 #include <C4PlayerList.h>
 
-const int32_t TextMsgDelayFactor = 2; // frames per char message display time
+const int32_t ObjectMsgDelayFactor = 2, GlobalMsgDelayFactor = 3; // frames per char message display time
 
 C4GameMessage::C4GameMessage() : pFrameDeco(NULL)
 {
@@ -50,13 +50,17 @@ void C4GameMessage::Init(int32_t iType, const StdStrBuf & sText, C4Object *pTarg
 	Player=iPlayer;
 	ColorDw=dwClr;
 	Type=iType;
-	Delay=Max<int32_t>(C4GM_MinDelay, Text.getLength() * TextMsgDelayFactor);
+	Delay=Max<int32_t>(C4GM_MinDelay, Text.getLength() * (Target ? ObjectMsgDelayFactor : GlobalMsgDelayFactor));
 	DecoID=idDecoID;
 	this->dwFlags=dwFlags;
 	PictureDef=NULL;
+	PictureDefVal.Set0();
 	if (pSrc)
-		if (pSrc->GetDef() || pSrc->GetObject())
+		if (pSrc->GetDef() || pSrc->GetObject() || pSrc->GetPropertyPropList(P_Source))
+		{
 			PictureDef = pSrc;
+			PictureDefVal.SetPropList(pSrc);
+		}
 	// Permanent message
 	if ('@' == Text[0])
 	{
@@ -86,7 +90,7 @@ void C4GameMessage::Append(const char *szText, bool fNoDuplicates)
 				return;
 	// Append new line
 	Text.AppendFormat("|%s", szText);
-	Delay += SLen(szText) * TextMsgDelayFactor;
+	Delay += SLen(szText) * (Target ? ObjectMsgDelayFactor : GlobalMsgDelayFactor);
 }
 
 bool C4GameMessage::Execute()
@@ -175,6 +179,8 @@ void C4GameMessage::Draw(C4TargetFacet &cgo, int32_t iPlayer)
 				PictureDef->GetObject()->DrawPicture(facet);
 			else if (PictureDef->GetDef())
 				PictureDef->GetDef()->Draw(facet);
+			else
+				Game.DrawPropListSpecImage(facet, PictureDef);
 
 			// draw message
 			pDraw->TextOut(sText.getData(),::GraphicsResource.FontRegular,1.0,cgo.Surface,iDrawX+PictureWidth+PictureIndent,iDrawY,ColorDw,ALeft);

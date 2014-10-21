@@ -82,10 +82,14 @@ public:
 };
 
 static C4GameParameters GameParameters;
+static C4ScenarioParameterDefs GameScenarioParameterDefs;
+static C4ScenarioParameters GameStartupScenarioParameters;
 static C4RoundResults GameRoundResults;
 
 C4Game::C4Game():
+		ScenarioParameterDefs(GameScenarioParameterDefs),
 		Parameters(GameParameters),
+		StartupScenarioParameters(GameStartupScenarioParameters),
 		Clients(Parameters.Clients),
 		Teams(Parameters.Teams),
 		PlayerInfos(Parameters.PlayerInfos),
@@ -245,9 +249,12 @@ bool C4Game::OpenScenario()
 	// String tables
 	C4Language::LoadComponentHost(&ScenarioLangStringTable, ScenarioFile, C4CFN_ScriptStringTbl, Config.General.LanguageEx);
 
+	// Custom scenario parameter definitions. Load even as network client to get localized option names
+	ScenarioParameterDefs.Load(ScenarioFile, &ScenarioLangStringTable);
+
 	// Load parameters (not as network client, because then team info has already been sent by host)
 	if (!Network.isEnabled() || Network.isHost())
-		if (!Parameters.Load(ScenarioFile, &C4S, GameText.GetData(), &ScenarioLangStringTable, DefinitionFilenames))
+		if (!Parameters.Load(ScenarioFile, &C4S, GameText.GetData(), &ScenarioLangStringTable, DefinitionFilenames, &StartupScenarioParameters))
 			return false;
 
 	SetInitProgress(4);
@@ -298,7 +305,7 @@ bool C4Game::PreInit()
 	// Timer flags
 	GameGo=false;
 	// set gamma
-	pDraw->SetGamma(Config.Graphics.Gamma1, Config.Graphics.Gamma2, Config.Graphics.Gamma3, C4GRI_USER);
+	SetDefaultGamma();
 	// init message input (default commands)
 	MessageInput.Init();
 	Game.SetInitProgress(31.0f);
@@ -542,6 +549,8 @@ void C4Game::Clear()
 	delete pFileMonitor; pFileMonitor = NULL;
 	// fade out music
 	Application.MusicSystem.FadeOut(2000);
+	// Reset colors
+	SetDefaultGamma();
 	// game no longer running
 	IsRunning = false;
 	PointersDenumerated = false;
@@ -576,6 +585,8 @@ void C4Game::Clear()
 	Parameters.Clear();
 	RoundResults.Clear();
 	C4S.Clear();
+	ScenarioParameterDefs.Clear();
+	StartupScenarioParameters.Clear();
 	Weather.Clear();
 	GraphicsSystem.Clear();
 	DeleteObjects(true);
@@ -1578,8 +1589,11 @@ void C4Game::CompileFunc(StdCompiler *pComp, CompileSettings comp, C4ValueNumber
 		pComp->Name("Game");
 		pComp->Value(mkNamingAdapt(Time,                  "Time",                  0));
 		pComp->Value(mkNamingAdapt(FrameCounter,          "Frame",                 0));
-		pComp->Value(mkNamingAdapt(Control.ControlTick,   "ControlTick",           0));
-		pComp->Value(mkNamingAdapt(Control.SyncRate,      "SyncRate",              C4SyncCheckRate));
+		if (comp.fSync)
+		{
+			pComp->Value(mkNamingAdapt(Control.ControlTick,   "ControlTick",           0));
+			pComp->Value(mkNamingAdapt(Control.SyncRate,      "SyncRate",              C4SyncCheckRate));
+		}
 		pComp->Value(mkNamingAdapt(iTick2,                "Tick2",                 0));
 		pComp->Value(mkNamingAdapt(iTick3,                "Tick3",                 0));
 		pComp->Value(mkNamingAdapt(iTick5,                "Tick5",                 0));
@@ -1666,11 +1680,11 @@ void C4Game::CompileFunc(StdCompiler *pComp, CompileSettings comp, C4ValueNumber
 	pComp->NameEnd();
 }
 
-bool C4Game::CompileRuntimeData(C4Group &hGroup, bool fLoadSection, bool exact, C4ValueNumbers * numbers)
+bool C4Game::CompileRuntimeData(C4Group &hGroup, bool fLoadSection, bool exact, bool sync, C4ValueNumbers * numbers)
 {
 	::Objects.Clear(!fLoadSection);
 	GameText.Load(hGroup,C4CFN_Game);
-	CompileSettings Settings(fLoadSection, false, exact);
+	CompileSettings Settings(fLoadSection, false, exact, sync);
 	// C4Game is not defaulted on compilation.
 	// Loading of runtime data overrides only certain values.
 	// Doesn't compile players; those will be done later
@@ -1690,13 +1704,13 @@ bool C4Game::CompileRuntimeData(C4Group &hGroup, bool fLoadSection, bool exact, 
 	return true;
 }
 
-bool C4Game::SaveData(C4Group &hGroup, bool fSaveSection, bool fSaveExact, C4ValueNumbers * numbers)
+bool C4Game::SaveData(C4Group &hGroup, bool fSaveSection, bool fSaveExact, bool fSaveSync, C4ValueNumbers * numbers)
 {
 	if (fSaveExact)
 	{
 		StdStrBuf Buf;
 		// Decompile (without players for scenario sections)
-		DecompileToBuf_Log<StdCompilerINIWrite>(mkParAdapt(*this, CompileSettings(fSaveSection, !fSaveSection && fSaveExact, fSaveExact), numbers), &Buf, "Game");
+		DecompileToBuf_Log<StdCompilerINIWrite>(mkParAdapt(*this, CompileSettings(fSaveSection, !fSaveSection && fSaveExact, fSaveExact, fSaveSync), numbers), &Buf, "Game");
 
 		// Clear alternate saving method
 		hGroup.Delete(C4CFN_ScenarioObjectsScript);
@@ -2084,6 +2098,9 @@ bool C4Game::InitGame(C4Group &hGroup, bool fLoadSection, bool fLoadSky, C4Value
 		// Final init for loaded player commands. Before linking scripts, so CON_* constants are registered
 		PlayerControlDefs.FinalInit();
 
+		// Register constants for scenario options
+		ScenarioParameterDefs.RegisterScriptConstants(Parameters.ScenarioParameters);
+
 		// Now that all controls and assignments are known, resolve user overloads on control assignments
 		if (!InitPlayerControlUserSettings()) return false;
 		// Sort assignments by priority. Should be done last, because the user should not see this order in the control config dialog
@@ -2144,7 +2161,7 @@ bool C4Game::InitGame(C4Group &hGroup, bool fLoadSection, bool fLoadSky, C4Value
 	if (!fLoadSection) InitValueOverloads();
 
 	// runtime data
-	if (!CompileRuntimeData(hGroup, fLoadSection, C4S.Head.SaveGame, numbers))
+	if (!CompileRuntimeData(hGroup, fLoadSection, C4S.Head.SaveGame, C4S.Head.NetworkGame, numbers))
 		{ LogFatal(LoadResStr("IDS_PRC_FAIL")); return false; }
 
 	SetInitProgress(93);
@@ -3314,7 +3331,7 @@ bool C4Game::LoadScenarioSection(const char *szSection, DWORD dwFlags)
 		{
 			C4ValueNumbers numbers;
 			// objects: do not save info objects or inactive objects
-			if (!SaveData(*pGrp,true,false, &numbers))
+			if (!SaveData(*pGrp,true,false, false, &numbers))
 			{
 				DebugLog("LoadScenarioSection: Error saving objects");
 				return false;
@@ -3516,6 +3533,37 @@ float C4Game::GetTextSpecImageAspect(const char* szSpec)
 	}
 }
 
+bool C4Game::DrawPropListSpecImage(C4Facet &fctTarget, C4PropList *pSpec)
+{
+	// safety
+	assert(pSpec);
+	if (!pSpec) return false;
+
+	// get source definition
+	C4PropList *source_def_proplist = pSpec->GetPropertyPropList(P_Source);
+	if (!source_def_proplist) return false;
+	C4Def *source_def = source_def_proplist->GetDef();
+	if (!source_def) return false;
+
+	// get custom color
+	uint32_t color = (uint32_t)pSpec->GetPropertyInt(P_Color);
+	
+	C4String *source_name = pSpec->GetPropertyStr(P_Name);
+	if (!source_name)
+	{
+		// Base graphics
+		source_def->Draw(fctTarget, false, color);
+	}
+	else
+	{
+		// Alternative named graphics
+		C4DefGraphics *source_graphics = source_def->Graphics.Get(source_name->GetCStr());
+		if (!source_graphics) return false;
+		source_graphics->Draw(fctTarget, color, NULL, 0,0, NULL);
+	}
+	return true;
+}
+
 bool C4Game::SpeedUp()
 {
 	// As these functions work stepwise, there's the old maximum speed of 50.
@@ -3545,4 +3593,16 @@ void C4Game::SetMusicLevel(int32_t iToLvl)
 bool C4Game::ToggleChat()
 {
 	return C4ChatDlg::ToggleChat();
+}
+
+void C4Game::SetDefaultGamma()
+{
+	// Default gamma ramps
+	for (int32_t iRamp=0; iRamp<C4MaxGammaRamps; ++iRamp)
+	{
+		if (iRamp == C4GRI_USER)
+			pDraw->SetGamma(Config.Graphics.Gamma1, Config.Graphics.Gamma2, Config.Graphics.Gamma3, iRamp);
+		else
+			pDraw->SetGamma(0x000000, 0x808080, 0xffffff, iRamp);
+	}
 }

@@ -112,6 +112,8 @@ bool C4Application::DoInit(int argc, char * argv[])
 	C4Group_SetTempPath(Config.General.TempPath.getData());
 	C4Group_SetSortList(C4CFN_FLS);
 
+	// Cleanup temp folders left behind
+	Config.CleanupTempUpdateFolder();
 
 	// Initialize game data paths
 	Reloc.Init();
@@ -246,6 +248,7 @@ void C4Application::ParseCommandLine(int argc, char * argv[])
 			{"tcpport", required_argument, 0, 't'},
 			{"join", required_argument, 0, 'j'},
 			{"language", required_argument, 0, 'L'},
+			{"scenpar", required_argument, 0, 'S'},
 
 			{"observe", no_argument, 0, 'o'},
 			{"nonetwork", no_argument, 0, 'N'},
@@ -338,6 +341,15 @@ void C4Application::ParseCommandLine(int argc, char * argv[])
 		case 'D': Game.DebugPort = atoi(optarg); break;
 		case 'P': Game.DebugPassword = optarg; break;
 		case 'H': Game.DebugHost = optarg; break;
+		// set custom scenario parameter by command line
+		case 'S':
+			{
+			StdStrBuf sopt, soptval; sopt.Copy(optarg);
+			int32_t val=1;
+			if (sopt.SplitAtChar('=', &soptval)) val=atoi(soptval.getData());
+			Game.StartupScenarioParameters.SetValue(sopt.getData(), val, false);
+			}
+			break;
 		// debug configs
 		case 'h':
 			Game.NetworkActive = true;
@@ -517,15 +529,15 @@ bool C4Application::PreInit()
 	if (!MusicSystem.Init("Frontend.*"))
 		Log(LoadResStr("IDS_PRC_NOMUSIC"));
 
-	// Play some music!
-	if (fUseStartupDialog && !isEditor && Config.Sound.FEMusic)
-		MusicSystem.Play();
-
 	Game.SetInitProgress(fUseStartupDialog ? 34.0f : 2.0f);
 
 	// Sound
 	if (!SoundSystem.Init())
 		Log(LoadResStr("IDS_PRC_NOSND"));
+
+	// Play some music! - after sound init because sound system might be needed by music system
+	if (fUseStartupDialog && !isEditor && Config.Sound.FEMusic)
+		MusicSystem.Play();
 
 	Game.SetInitProgress(fUseStartupDialog ? 35.0f : 3.0f);
 
@@ -647,6 +659,7 @@ void C4Application::GameTick()
 		break;
 	case C4AS_Startup:
 		SoundSystem.Execute();
+		MusicSystem.Execute();
 		// wait for the user to start a game
 		break;
 	case C4AS_StartGame:

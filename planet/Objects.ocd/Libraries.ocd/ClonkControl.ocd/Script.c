@@ -515,6 +515,9 @@ protected func RejectCollect(id objid, object obj)
 {
 	// collection of that object magically disabled?
 	if(GetEffect("NoCollection", obj)) return true;
+	
+	// NPCs only collect on demand (so they don't steal stuff form the player)
+	if (!force_collection && GetController() == NO_OWNER) return true;
 
 	// Carry heavy only gets picked up if none held already
 	if(obj->~IsCarryHeavy())
@@ -1134,7 +1137,7 @@ public func ObjectControl(int plr, int ctrl, int x, int y, int strength, bool re
 			if (ctrl == CON_ThrowAlt)
 			{
 				CancelUse();
-				if (proc == "SCALE" || proc == "HANGLE")
+				if (proc == "SCALE" || proc == "HANGLE" || proc == "SWIM")
 					return ObjectCommand("Drop", contents2);
 				else
 					return ObjectCommand("Throw", contents2, x, y);
@@ -1639,6 +1642,10 @@ private func ObjectControlPush(int plr, int ctrl)
 	{
 		// ungrab only if he pushes
 		if (proc != "PUSH") return false;
+		
+		// vehicles might have set their own view and it's not reset on release controls
+		// So reset cursor view immediately when ungrabbing
+		ResetCursorView(GetController());
 
 		ObjectCommand("UnGrab");
 		return true;

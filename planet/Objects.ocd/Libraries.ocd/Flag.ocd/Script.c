@@ -67,7 +67,12 @@ func RefreshAllPowerHelpers()
 
 func RedrawFlagRadius()
 {
-	//ClearFlagMarkers();
+	// Flag deactivated by setting empty radius
+	if (!lflag.radius)
+	{
+		ClearFlagMarkers();
+		return true;
+	}
 	
 	//var flags = FindObjects(Find_ID(FlagPole),Find_Exclude(target), Find_Not(Find_Owner(GetOwner())), /*Find_Distance(FLAG_DISTANCE*2 + 10,0,0)*/Sort_Func("GetLifeTime"));
 	var other_flags = [];
@@ -140,6 +145,8 @@ func RedrawFlagRadius()
 		}
 		SetLength(lflag.range_markers, old + 1);
 	}
+	
+	return true;
 }
 
 func RefreshOwnershipOfSurrounding()
@@ -154,21 +161,8 @@ func RefreshOwnershipOfSurrounding()
 }
 public func Initialize()
 {
-	// no falling down anymore
-	SetCategory(C4D_StaticBack);
-	
-	if(GetIndexOf(LibraryFlag_flag_list, this) == -1)
-		LibraryFlag_flag_list[GetLength(LibraryFlag_flag_list)] = this;
-
-	// redraw
-	RedrawAllFlagRadiuses();
-	
-	// ownership
-	RefreshOwnershipOfSurrounding();
-	
-	// linked flags - optimization for power system
-	RefreshAllFlagLinks();
-	
+	AddOwnership();
+	AddEffect("IntFlagMovementCheck", this, 100, 12, this);
 	return _inherited(...);
 }
 
@@ -191,6 +185,28 @@ public func Construction()
 
 public func Destruction()
 {
+	RemoveOwnership();
+	
+	return _inherited(...);
+}
+
+private func AddOwnership()
+{
+	if(GetIndexOf(LibraryFlag_flag_list, this) == -1)
+		LibraryFlag_flag_list[GetLength(LibraryFlag_flag_list)] = this;
+
+	// redraw
+	RedrawAllFlagRadiuses();
+	
+	// ownership
+	RefreshOwnershipOfSurrounding();
+	
+	// linked flags - optimization for power system
+	RefreshAllFlagLinks();
+}
+
+private func RemoveOwnership()
+{
 	ClearFlagMarkers();
 	
 	// remove from global array
@@ -210,8 +226,43 @@ public func Destruction()
 	
 	// refresh all flag links
 	RefreshAllFlagLinks();
-	
-	return _inherited(...);
+}
+
+protected func FxIntFlagMovementCheckStart(object target, proplist effect, int temp)
+{
+	if (temp)
+		return FX_OK;
+	effect.moving = false;
+	effect.Interval = 12;
+	effect.X = target->GetX();
+	effect.Y = target->GetY();
+	return FX_OK;
+}
+
+protected func FxIntFlagMovementCheckTimer(object target, proplist effect)
+{
+	// Check if flag started moving.
+	if (!effect.moving)
+	{
+		if (effect.X != target->GetX() || effect.Y != target->GetY())
+		{
+			effect.moving = true;
+			RemoveOwnership();
+		}	
+	}
+	// Check if flag stopped moving.
+	else
+	{
+		if (effect.X == target->GetX() && effect.Y == target->GetY())
+		{
+			effect.moving = false;
+			AddOwnership();
+		}	
+	}
+	// Update coordinates.
+	effect.X = target->GetX();
+	effect.Y = target->GetY();
+	return FX_OK;
 }
 
 func ScheduleRefreshLinkedFlags()
@@ -396,6 +447,7 @@ public func GetFlagMarkerID(){return LibraryFlag_Marker;}
 public func SaveScenarioObject(props)
 {
 	if (!inherited(props, ...)) return false;
+	props->Remove("Category"); // category is always set to StaticBack...
 	if (lflag && lflag.radius != DefaultFlagRadius) props->AddCall("Radius", this, "SetFlagRadius", lflag.radius);
 	return true;
 }

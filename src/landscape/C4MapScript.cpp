@@ -42,7 +42,7 @@ int32_t FnParTexCol(C4String *mattex, int32_t default_col = -1)
 	const char *cmattex = mattex->GetCStr();
 	int32_t ift = IFT;
 	if (*cmattex == '^') { ift=0; ++cmattex; }
-	int32_t col = ::TextureMap.GetIndexMatTex(cmattex);
+	int32_t col = ::MapScript.pTexMap->GetIndexMatTex(cmattex);
 	return col ? col|ift : default_col;
 }
 
@@ -118,19 +118,19 @@ void C4MapScriptMatTexMask::UnmaskSpec(C4String *spec)
 		if (SCharCount('-', cspec))
 		{
 			// Material+Texture
-			int32_t col = ::TextureMap.GetIndexMatTex(cspec, NULL, false);
+			int32_t col = ::MapScript.pTexMap->GetIndexMatTex(cspec, NULL, false);
 			if (col) mat_mask[col] = true;
 		}
 		else
 		{
 			// Only material: Mask all textures of this material
-			int32_t mat = ::MaterialMap.Get(cspec);
+			int32_t mat = ::MapScript.pMatMap->Get(cspec);
 			if (mat!=MNone)
 			{
 				const char *tex_name;
 				int32_t col;
-				for (int32_t itex=0; (tex_name=::TextureMap.GetTexture(itex)); itex++)
-					if ((col = ::TextureMap.GetIndex(cspec,tex_name,false)))
+				for (int32_t itex=0; (tex_name=::MapScript.pTexMap->GetTexture(itex)); itex++)
+					if ((col = ::MapScript.pTexMap->GetIndex(cspec,tex_name,false)))
 						mat_mask[col] = true;
 			}
 		}
@@ -494,7 +494,7 @@ C4MapScriptLayer *C4MapScriptMap::CreateLayer(int32_t wdt, int32_t hgt)
 	return new_layer;
 }
 
-C4MapScriptHost::C4MapScriptHost(): LayerPrototype(NULL), MapPrototype(NULL) { }
+C4MapScriptHost::C4MapScriptHost(): LayerPrototype(NULL), MapPrototype(NULL), pTexMap(NULL), pMatMap(NULL) { }
 
 C4MapScriptHost::~C4MapScriptHost() { Clear(); }
 
@@ -550,6 +550,12 @@ bool C4MapScriptHost::Load(C4Group & g, const char * f, const char * l, C4LangSt
 	return C4ScriptHost::Load(g, f, l, t);
 }
 
+bool C4MapScriptHost::LoadData(const char * f, const char * d, C4LangStringTable * t)
+{
+	assert(LayerPrototype && MapPrototype);
+	return C4ScriptHost::LoadData(f, d, t);
+}
+
 void C4MapScriptHost::Clear()
 {
 	delete LayerPrototype; delete MapPrototype;
@@ -568,10 +574,12 @@ C4MapScriptMap *C4MapScriptHost::CreateMap()
 	return new C4MapScriptMap(MapPrototype);
 }
 
-bool C4MapScriptHost::InitializeMap(C4Group &group, CSurface8 **pmap_surface)
+bool C4MapScriptHost::InitializeMap(C4SLandscape *pLandscape, C4TextureMap *pTexMap, C4MaterialMap *pMatMap, uint32_t iPlayerCount, CSurface8 **pmap_surface)
 {
 	// Init scripted map by calling InitializeMap in the proper scripts. If *pmap_surface is given, it will pass the existing map to be modified by script.
 	assert(pmap_surface);
+	this->pTexMap = pTexMap;
+	this->pMatMap = pMatMap;
 	// Don't bother creating surfaces if the functions aren't defined
 	if (!LayerPrototype->GetFunc(PSF_InitializeMap))
 	{
@@ -590,7 +598,7 @@ bool C4MapScriptHost::InitializeMap(C4Group &group, CSurface8 **pmap_surface)
 	{
 		// No existing map. Create new.
 		int32_t map_wdt,map_hgt;
-		::Game.C4S.Landscape.GetMapSize(map_wdt, map_hgt, ::Game.StartupPlayerCount);
+		pLandscape->GetMapSize(map_wdt, map_hgt, iPlayerCount);
 		if (!map->CreateSurface(map_wdt, map_hgt)) return false;
 	}
 	C4AulParSet Pars(C4VPropList(map.get()));

@@ -36,9 +36,10 @@ private:
 		bool fScenarioSection;
 		bool fPlayers;
 		bool fExact;
+		bool fSync;
 
-		CompileSettings(bool fScenarioSection, bool fPlayers, bool fExact)
-				: fScenarioSection(fScenarioSection), fPlayers(fPlayers), fExact(fExact) { }
+		CompileSettings(bool fScenarioSection, bool fPlayers, bool fExact, bool fSync)
+				: fScenarioSection(fScenarioSection), fPlayers(fPlayers), fExact(fExact), fSync(fSync) { }
 	};
 
 	// struct of keyboard set and indexed control key
@@ -54,12 +55,14 @@ public:
 	~C4Game();
 
 	C4GameParameters   &Parameters;
+	class C4ScenarioParameters &StartupScenarioParameters; // parameters given on command line or during startup UI
 	C4ClientList       &Clients; // Shortcut
 	C4TeamList         &Teams; // Shortcut
 	C4PlayerInfoList   &PlayerInfos; // Shortcut
 	C4PlayerInfoList   &RestorePlayerInfos; // Shortcut
 	C4RoundResults      &RoundResults;
 	C4Scenario          C4S;
+	class C4ScenarioParameterDefs &ScenarioParameterDefs;
 	C4ComponentHost     Info;
 	C4ComponentHost     Title;
 	C4ComponentHost     Names;
@@ -218,12 +221,14 @@ public:
 
 	bool DrawTextSpecImage(C4Facet& fctTarget, const char *szSpec, class C4DrawTransform* pTransform, uint32_t dwClr=0xff);
 	float GetTextSpecImageAspect(const char* szSpec);
+	bool DrawPropListSpecImage(C4Facet& fctTarget, C4PropList *pSpec);
 	bool SpeedUp();
 	bool SlowDown();
 	bool InitKeyboard(); // register main keyboard input functions
 	void UpdateLanguage();
 	bool InitPlayerControlSettings();
 	bool InitPlayerControlUserSettings(); // merge player control default settings and config overloads into user setting
+	void SetDefaultGamma();
 
 protected:
 	void Default();
@@ -264,9 +269,9 @@ protected:
 	bool PlaceInEarth(C4ID id);
 public:
 	void CompileFunc(StdCompiler *pComp, CompileSettings comp, C4ValueNumbers *);
-	bool SaveData(C4Group &hGroup, bool fSaveSection, bool fSaveExact, C4ValueNumbers *);
+	bool SaveData(C4Group &hGroup, bool fSaveSection, bool fSaveExact, bool fSaveSync, C4ValueNumbers *);
 protected:
-	bool CompileRuntimeData(C4Group &hGroup, bool fLoadSection, bool exact, C4ValueNumbers *);
+	bool CompileRuntimeData(C4Group &hGroup, bool fLoadSection, bool exact, bool sync, C4ValueNumbers *);
 	bool StoreParticipantPlayers();
 	bool RecreatePlayerFiles();
 

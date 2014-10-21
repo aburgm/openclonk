@@ -756,14 +756,16 @@ bool C4Landscape::CheckInstability(int32_t tx, int32_t ty, int32_t recursion_cou
 {
 	int32_t mat=GetMat(tx,ty);
 	if (MatValid(mat)) {
-		if (::MaterialMap.Map[mat].Instable)
+		const C4Material &material = MaterialMap.Map[mat];
+		if (material.Instable)
 			return ::MassMover.Create(tx,ty);
 		// Get rid of single pixels
-		else if (::MaterialMap.Map[mat].DigFree && recursion_count<10) 
+		else if (DensitySolid(material.Density) && !material.KeepSinglePixels && recursion_count<10) 
 			if ((!::GBackSolid(tx,ty+1)) + (!::GBackSolid(tx,ty-1)) + (!::GBackSolid(tx+1,ty)) + (!::GBackSolid(tx-1,ty)) >= 3)
 			{
 				if (!ClearPix(tx,ty)) return false;
-				::PXS.Create(mat,itofix(tx),itofix(ty));
+				// Diggable material drops; other material just gets removed
+				if (material.DigFree) ::PXS.Create(mat,itofix(tx),itofix(ty));
 				// check other pixels around this
 				// Note this cannot lead to an endless recursion (unless you do funny stuff like e.g. set DigFree=1 in material Tunnel).
 				// Check recursion anyway, because very large strips of single pixel width might cause sufficient recursion to crash
@@ -1216,6 +1218,11 @@ bool C4Landscape::Init(C4Group &hGroup, bool fOverloadCurrent, bool fLoadSky, bo
 	// don't change landscape mode in runtime joins
 	bool fLandscapeModeSet = (Mode != C4LSC_Undefined);
 
+	// Make pixel maps
+	// Pixel maps only depend on loaded materials and textures
+	// They might be accessed in map scripts, so they should be ready before map creation
+	UpdatePixMaps();
+
 	Game.SetInitProgress(60);
 	// create map if necessary
 	if (!Game.C4S.Landscape.ExactLandscape)
@@ -1231,7 +1238,7 @@ bool C4Landscape::Init(C4Group &hGroup, bool fOverloadCurrent, bool fLoadSky, bo
 				if (!fLandscapeModeSet) Mode=C4LSC_Dynamic;
 
 		// script may create or edit map
-		if (MapScript.InitializeMap(hGroup, &sfcMap))
+		if (MapScript.InitializeMap(&Game.C4S.Landscape, &::TextureMap, &::MaterialMap, Game.StartupPlayerCount, &sfcMap))
 			if (!fLandscapeModeSet) Mode=C4LSC_Dynamic;
 
 		// Dynamic map by scenario
@@ -1293,9 +1300,6 @@ bool C4Landscape::Init(C4Group &hGroup, bool fOverloadCurrent, bool fLoadSky, bo
 		rfLoaded=true;
 		if (!Load(hGroup, fLoadSky, fSavegame)) return false;
 	}
-
-	// Make pixel maps
-	UpdatePixMaps();
 
 	// progress
 	Game.SetInitProgress(80);

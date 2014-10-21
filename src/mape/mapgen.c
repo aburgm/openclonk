@@ -21,6 +21,10 @@
 #include "mape/mapgen.h"
 
 /* Declare private API */
+C4GroupHandle*
+_mape_group_get_handle(MapeGroup* group);
+
+
 C4MaterialMapHandle*
 _mape_material_map_get_handle(MapeMaterialMap* map);
 
@@ -33,11 +37,14 @@ static GQuark mape_mapgen_error_quark()
 }
 
 static void mape_mapgen_read_color(guint8* dest,
+                                   MapeMaterialMap* material_map,
                                    MapeTextureMap* texture_map,
                                    unsigned int matnum)
 {
   const gchar* texture_name;
+  const gchar* material_name;
   const gchar* first_tex_separator;
+  const MapeMaterial* material;
   gchar* own_texture_name;
   guint32 color;
 
@@ -55,19 +62,12 @@ static void mape_mapgen_read_color(guint8* dest,
       matnum
     );
 
-    if(!texture_name)
-    {
-      /* Texture not found, make the pixel black */
-      dest[matnum * 4 + 1] = 0;
-      dest[matnum * 4 + 2] = 0;
-      dest[matnum * 4 + 3] = 0;
-    }
-    else
+    own_texture_name = NULL;
+    if(texture_name != NULL)
     {
       /* When the texture is animated, the texture name consists of more than
        * one texture, separated with a '-' character. In this case, we simply
        * use the first one for display. */
-      own_texture_name = NULL;
       first_tex_separator = strchr(texture_name, '-');
       if(first_tex_separator != NULL)
       {
@@ -79,16 +79,52 @@ static void mape_mapgen_read_color(guint8* dest,
         texture_name = own_texture_name;
       }
 
+      /* Make sure the texture exists */
+      if(!mape_texture_map_lookup_texture(texture_map, texture_name))
+      {
+        material_name = mape_texture_map_get_material_name_from_mapping(
+          texture_map,
+          matnum
+        );
+
+        material = mape_material_map_get_material_by_name(
+          material_map,
+          material_name
+        );
+
+        /* It can happen that the material does not exist; this happens when
+         * a material-texture specification with texture set and invalid
+         * material occurs, such as "E-rough". In this case we display sky,
+         * since this is what happens when the texture specification is
+         * omitted (in which case no entry in the texmap is created, and
+         * matnum=0). */
+        if(!material)
+        {
+          dest[matnum * 4 + 1] = 100;
+          dest[matnum * 4 + 2] = 100;
+          dest[matnum * 4 + 3] = 255;
+          texture_name = NULL;
+        }
+        else
+        {
+          texture_name = mape_material_get_texture_overlay(material);
+        }
+      }
+    }
+
+    if(texture_name != NULL)
+    {
       color = mape_texture_map_get_average_texture_color(
         texture_map,
         texture_name
       );
-      g_free(own_texture_name);
 
       dest[matnum * 4 + 1] = (color      ) & 0xff;
       dest[matnum * 4 + 2] = (color >>  8) & 0xff;
       dest[matnum * 4 + 3] = (color >> 16) & 0xff;
     }
+
+    g_free(own_texture_name);
   }
 }
 
@@ -97,11 +133,73 @@ static void mape_mapgen_read_color(guint8* dest,
  */
 
 /**
+ * mape_mapgen_init:
+ * @error: Location to store error information, if any.
+ *
+ * Initializes the map generator.
+ *
+ * Returns: %TRUE on success or %FALSE on error.
+ */
+gboolean
+mape_mapgen_init(GError** error)
+{
+  c4_mapgen_handle_init_script_engine();
+  return TRUE;
+}
+
+/**
+ * mape_mapgen_deinit():
+ *
+ * Deinitializes the map generator.
+ */
+void
+mape_mapgen_deinit()
+{
+  c4_mapgen_handle_deinit_script_engine();
+}
+
+/**
+ * mape_mapgen_set_root_group:
+ * @group: The root group.
+ *
+ * Sets the root group for the map generator. This group is used to lookup the
+ * Library_Map definition.
+ */
+void
+mape_mapgen_set_root_group(MapeGroup* group)
+{
+  MapeGroup* objects;
+  MapeGroup* libraries;
+  MapeGroup* map;
+  GError* error;
+
+  error = NULL;
+  if(!error)
+    objects = mape_group_open_child(group, "Objects.ocd", &error);
+  if(!error)
+    libraries = mape_group_open_child(objects, "Libraries.ocd", &error);
+  if(!error)
+    map = mape_group_open_child(libraries, "Map.ocd", &error);
+
+  /* TODO: Error reporting? */
+  if(error == NULL)
+    c4_mapgen_handle_set_map_library(_mape_group_get_handle(map));
+
+  if(error != NULL)
+  {
+    fprintf(stderr, "Failed to load Objects.ocd/Libraries.ocd/Map.ocd/Script.c: %s\n", error->message);
+    g_error_free(error);
+  }
+}
+
+/**
  * mape_mapgen_render:
  *
  * @filename: The filename of the file that is being parsed. This is only used
  * for display purposes.
  * @source: The map generator source code for the map to generate.
+ * @type: Specifies how the text in @source should be interpreted. Must not be
+ * %MAPE_MAPGEN_NONE.
  * @script_path: Path to the script source for algo=script overlays, or %NULL.
  * @material_map: The material map containing the materials to be used during
  * map generation.
@@ -128,6 +226,7 @@ static void mape_mapgen_read_color(guint8* dest,
 GdkPixbuf*
 mape_mapgen_render(const gchar* filename,
                    const gchar* source,
+                   MapeMapgenType type,
                    const gchar* script_path,
                    MapeMaterialMap* material_map,
                    MapeTextureMap* texture_map,
@@ -149,15 +248,36 @@ mape_mapgen_render(const gchar* filename,
   unsigned int x, y;
   unsigned int matnum;
 
-  handle = c4_mapgen_handle_new(
-    filename,
-    source,
-    script_path,
-    _mape_material_map_get_handle(material_map),
-    _mape_texture_map_get_handle(texture_map),
-    width,
-    height
-  );
+  switch(type)
+  {
+  case MAPE_MAPGEN_LANDSCAPE_TXT:
+    handle = c4_mapgen_handle_new(
+      filename,
+      source,
+      script_path,
+      _mape_material_map_get_handle(material_map),
+      _mape_texture_map_get_handle(texture_map),
+      width,
+      height
+    );
+
+    break;
+  case MAPE_MAPGEN_MAP_C:
+    handle = c4_mapgen_handle_new_script(
+      filename,
+      source,
+      _mape_material_map_get_handle(material_map),
+      _mape_texture_map_get_handle(texture_map),
+      width,
+      height
+    );
+
+    break;
+  default:
+    handle = NULL;
+    g_assert_not_reached();
+    break;
+  }
 
   error_message = c4_mapgen_handle_get_error(handle);
   if(error_message)
@@ -214,6 +334,7 @@ mape_mapgen_render(const gchar* filename,
       {
         mape_mapgen_read_color(
           matclrs,
+          material_map,
           texture_map,
           matnum
         );

@@ -68,18 +68,18 @@ public func ShowsItem()
 
 public func MouseSelectionAlt(int plr)
 {
-	if(!myobject) return;
+	if (!myobject) return;
 	
 	var desc = myobject.UsageHelp;
-	if(!desc) desc = myobject.Description; // fall back to general description
+	if (!desc) desc = myobject.Description; // fall back to general description
 	
 	// close other messages...
 	crew->OnDisplayInfoMessage();
 	
-	if(desc)
+	if (desc)
 	{
-		var msg = Format("<c ff0000>%s</c>",desc);
-		CustomMessage(msg,this,plr);
+		var msg = Format("<c ff0000>%s</c>", desc);
+		CustomMessage(msg, this, plr);
 	}
 	return true;
 }
@@ -108,7 +108,12 @@ public func MouseSelection(int plr)
 		{
 			// which is mine -> let go
 			if(crew->GetActionTarget() == myobject)
+			{
+				// vehicles might have set their own view and it's not reset on release controls
+				// So reset cursor view immediately when ungrabbing
+				ResetCursorView(GetController());
 				crew->ObjectCommand("UnGrab");
+			}
 			else
 				crew->ObjectCommand("Grab", myobject);
 				

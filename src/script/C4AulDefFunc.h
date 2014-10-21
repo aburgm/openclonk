@@ -323,8 +323,8 @@ public C4AulDefFuncHelper {                   \
   public:                                     \
 /* A pointer to the function which this class wraps */ \
     typedef RType (*Func)(C4Rope * LIST(N, PARS)); \
-    virtual int GetParCount() { return N; }   \
-    virtual C4V_Type GetRetType()             \
+    virtual int GetParCount() const { return N; }   \
+    virtual C4V_Type GetRetType() const       \
     { return C4ValueConv<RType>::Type(); }    \
 /* Constructor, using the base class to create the ParType array */ \
     C4AulDefRopeFunc##N(C4AulScript *pOwner, const char *pName, Func pFunc, bool Public): \

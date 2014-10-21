@@ -48,13 +48,6 @@ CMAKE_DEPENDENT_OPTION(USE_GTK "Use GTK for the developer mode" ON "USE_X11" OFF
 CMAKE_DEPENDENT_OPTION(USE_GTK3 "Use GTK3 instead of GTK2" OFF "USE_GTK" OFF)
 
 CMAKE_DEPENDENT_OPTION(USE_COCOA "Use Apple Cocoa for the developer mode and the windows." ON "APPLE" OFF)
-CMAKE_DEPENDENT_OPTION(USE_APPLE_CLANG "Use Apple Clang Compiler as C++ compiler." ON "APPLE" OFF)
-if(APPLE)
-	SET(INITIAL_USE_OPEN_AL ON)
-else()
-	SET(INITIAL_USE_OPEN_AL OFF)
-endif()
-option(USE_OPEN_AL "Use OpenAL to play sounds" ${INITIAL_USE_OPEN_AL})
 option(WITH_AUTOMATIC_UPDATE "Automatic updates are downloaded from the project website." OFF)
 
 # We link Boost statically because that makes it easier for us to distribute
@@ -63,8 +56,12 @@ option(WITH_AUTOMATIC_UPDATE "Automatic updates are downloaded from the project 
 # dynamic linking.
 option(USE_STATIC_BOOST "Link Boost libraries statically" ON)
 
+# Allow distributions to use the system tinyxml instead of our bundled copy.
+option(USE_SYSTEM_TINYXML "Use system tinyxml library" OFF)
+
 # Remove obsolete options
 unset(OC_BUILD_MULTIPROCESSOR CACHE)
+unset(USE_APPLE_CLANG CACHE)
 
 ############################################################################
 # Check for compiler quirks and features
@@ -78,12 +75,12 @@ if(USE_GCC_STD_0X)
 	list(APPEND OC_CXX_FLAGS "-std=gnu++0x")
 endif()
 
-# Convert the OC_CXX_FLAGS list to a CMAKE_REQUIRED_FLAGS string
+# Convert the OC_CXX_FLAGS list to a CMAKE_CXX_FLAGS string
 foreach(FLAG ${OC_CXX_FLAGS})
 	set(OC_REQUIRED_FLAGS "${OC_REQUIRED_FLAGS} ${FLAG}")
 endforeach()
 
-set(CMAKE_REQUIRED_FLAGS ${OC_REQUIRED_FLAGS})
+set(CMAKE_CXX_FLAGS ${OC_REQUIRED_FLAGS})
 
 REQUIRE_CXX_SOURCE_COMPILES("#include <memory>\nint main() { std::unique_ptr<int> a; std::shared_ptr<int> b; }" HAVE_C11_SMART_PTRS)
 CHECK_CXX_SOURCE_COMPILES("void f(struct D&&); int main() { return 0; }" HAVE_RVALUE_REF)
@@ -444,6 +441,7 @@ set(OC_CLONK_SOURCES
 	src/platform/C4MusicSystem.h
 	src/platform/C4SoundLoaders.cpp
 	src/platform/C4SoundLoaders.h
+	src/platform/C4SoundIncludes.h
 	src/platform/C4SoundSystem.cpp
 	src/platform/C4SoundSystem.h
 	src/platform/C4TimeMilliseconds.cpp 
@@ -465,6 +463,8 @@ set(OC_CLONK_SOURCES
 	src/player/C4PlayerList.h
 	src/player/C4RankSystem.cpp
 	src/player/C4RankSystem.h
+	src/player/C4ScenarioParameters.cpp
+	src/player/C4ScenarioParameters.h
 	src/script/C4AulDebug.cpp
 	src/script/C4AulDebug.h
 	thirdparty/timsort/sort.h
@@ -473,12 +473,19 @@ set(OC_CLONK_SOURCES
 set(MAPE_BASE_SOURCES
 	src/landscape/C4MapCreatorS2.cpp
 	src/landscape/C4MapCreatorS2.h
+	src/landscape/C4MapScriptAlgo.cpp
+	src/landscape/C4MapScript.cpp
+	src/landscape/C4MapScript.h
 	src/landscape/C4Material.cpp
 	src/landscape/C4Material.h
 	src/landscape/C4Texture.cpp
 	src/landscape/C4Texture.h
 	src/landscape/C4Scenario.cpp
 	src/landscape/C4Scenario.h
+	src/graphics/Bitmap256.cpp
+	src/graphics/Bitmap256.h
+	src/graphics/CSurface8.cpp
+	src/graphics/CSurface8.h
 	src/lib/C4NameList.cpp
 	src/lib/C4NameList.h
 	src/lib/C4Rect.cpp
@@ -488,8 +495,10 @@ set(MAPE_BASE_SOURCES
 )
 
 set(MAPE_SOURCES
+	src/mape/cpp-handles/c4def-handle.cpp
 	src/mape/cpp-handles/group-handle.h
 	src/mape/cpp-handles/group-handle.cpp
+	src/mape/cpp-handles/landscape-handle.cpp
 	src/mape/cpp-handles/log-handle.h
 	src/mape/cpp-handles/log-handle.cpp
 	src/mape/cpp-handles/mapgen-handle.h
@@ -751,6 +760,10 @@ if(USE_CONSOLE)
 	CHECK_INCLUDE_FILE_CXX(readline/readline.h HAVE_READLINE_READLINE_H)
 endif()
 CHECK_INCLUDE_FILE_CXX(natupnp.h HAVE_NATUPNP_H)
+if(WIN32 AND NOT HAVE_NATUPNP_H)
+	include_directories(thirdparty/natupnp)
+	set(HAVE_NATUPNP_H TRUE CACHE BOOL "natupnp.h available" FORCE)
+endif()
 CHECK_INCLUDE_FILES_CXX("X11/Xlib.h;X11/extensions/Xrandr.h" HAVE_X11_EXTENSIONS_XRANDR_H)
 CHECK_INCLUDE_FILES_CXX("X11/Xlib.h;X11/keysym.h" HAVE_X11_KEYSYM_H)
 
@@ -780,8 +793,10 @@ include_directories(${JPEG_INCLUDE_DIR} ${PNG_INCLUDE_DIR} ${ZLIB_INCLUDE_DIR})
 find_package("Boost" 1.40.0 REQUIRED)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
-include(FindThreads)
-if(NOT WIN32)
+if(CMAKE_SYSTEM MATCHES "Windows")
+	message(STATUS "Using Win32 threading.")
+else()
+	find_package("Threads" REQUIRED)
 	SET(HAVE_PTHREAD ${CMAKE_USE_PTHREADS_INIT} CACHE INTERNAL "libpthread available")
 endif()
 
@@ -847,7 +862,7 @@ if(USE_GTK)
 		include_directories(${GTK3_INCLUDE_DIRS})
 		link_directories(${GTK3_LIBRARY_DIRS})
 	else()
-		pkg_check_modules(GTK REQUIRED "glib-2.0 >= 2.24" "gtk+-2.0 >= 2.20")
+		pkg_check_modules(GTK REQUIRED "glib-2.0 >= 2.28" "gtk+-2.0 >= 2.20")
 		include_directories(${GTK_INCLUDE_DIRS})
 		link_directories(${GTK_LIBRARY_DIRS})
 	endif()
@@ -859,7 +874,7 @@ if (PKG_CONFIG_FOUND)
 	if (USE_GTK3)
 		pkg_check_modules(MAPE_GTK glib-2.0>=2.32 gthread-2.0 gtk+-3.0>=3.4 gtksourceview-3.0)
 	else()
-		pkg_check_modules(MAPE_GTK glib-2.0>=2.24 gthread-2.0 gtk+-2.0>=2.20 gtksourceview-2.0)
+		pkg_check_modules(MAPE_GTK glib-2.0>=2.28 gthread-2.0 gtk+-2.0>=2.20 gtksourceview-2.0)
 	endif()
 endif()
 if(MAPE_GTK_FOUND)
@@ -868,21 +883,8 @@ if(MAPE_GTK_FOUND)
 	link_directories(${MAPE_GTK_LIBRARY_DIRS})
 endif()
 
-if(USE_OPEN_AL)
-	if(MSVC)
-		if(${FIND_LIBRARY_USE_LIB64_PATHS})
-			FINDLIB(OPENAL_LIBRARY NAMES OpenAL64)
-		else()
-			FINDLIB(OPENAL_LIBRARY NAMES OpenAL32)
-		endif()
-	endif()
-	FINDLIB(OGG_LIBRARY NAMES libogg_static libogg ogg)
-	FINDLIB(VORBIS_LIBRARY NAMES libvorbis_static libvorbis vorbis)
-	FINDLIB(VORBISFILE_LIBRARY NAMES libvorbisfile_static libvorbisfile vorbisfile)
-	if(NOT APPLE)
-		FINDLIB(ALUT_LIBRARY NAMES alut_static alut)
-	endif()
-endif()
+# Select an audio library
+find_package("Audio")
 
 ############################################################################
 # Precompiled header support, part 1 (pre-target)
@@ -1062,14 +1064,9 @@ target_link_libraries(openclonk
 	libmisc
 )
 
-if(USE_OPEN_AL)
-	target_link_libraries(openclonk
-		${OPENAL_LIBRARY}
-		${ALUT_LIBRARY}
-		${VORBIS_LIBRARY}
-		${VORBISFILE_LIBRARY}
-		${OGG_LIBRARY}
-	)
+if(Audio_FOUND)
+	target_link_libraries(openclonk ${Audio_LIBRARIES})
+	include_directories(${Audio_INCLUDE_DIRS})
 endif()
 
 if(MAPE_GTK_FOUND)
@@ -1122,7 +1119,7 @@ if(UNIX AND NOT APPLE)
 	endif()
 endif()
 set_property(TARGET openclonk APPEND PROPERTY COMPILE_DEFINITIONS GLEW_STATIC)
-set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS_DEBUG _DEBUG)
+#set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS_DEBUG _DEBUG)
 
 # This expands some variables in Info.plist as a side-effect. XCode might then 
 # expand a second time, using the same syntax. Try not to get confused by this!
@@ -1149,6 +1146,12 @@ if(MSVC)
 	# so we add it to the resource file ourselves and tell
 	# MSVC not to create its own.
 	set_property(TARGET openclonk APPEND PROPERTY LINK_FLAGS "/MANIFEST:NO")
+endif()
+
+# Suppress the console window for mape even though only a main() and not
+# a WinMain() entry point is provided.
+if(MINGW)
+	set_target_properties(mape PROPERTIES LINK_FLAGS -mwindows)
 endif()
 
 ############################################################################
@@ -1274,8 +1277,14 @@ if(ICONV_FOUND)
 endif()
 
 # TinyXML
-add_subdirectory(thirdparty/tinyxml)
-target_link_libraries(openclonk tinyxml)
+if(WITH_SYSTEM_TINYXML)
+	pkg_search_module(TINYXML REQUIRED tinyxml)
+	target_link_libraries(openclonk ${TINYXML_LIBRARIES})
+else()
+	add_subdirectory(thirdparty/tinyxml)
+	include_directories(thirdparty/tinyxml)
+	target_link_libraries(openclonk tinyxml)
+endif()
 
 if(WIN32)
 	find_package(DbgHelp)
@@ -1343,36 +1352,6 @@ if (WIN32)
 	if(MAPE_GTK_FOUND)
 		target_link_libraries(mape winmm)
 	endif()
-
-	if(NOT USE_OPEN_AL)
-		find_package(FMod)
-		if(FMOD_FOUND)
-			set(HAVE_FMOD TRUE)
-			target_link_libraries(openclonk
-				${FMOD_LIBRARIES}
-			)
-			include_directories(${FMOD_INCLUDE_DIR})
-		else()
-			set(HAVE_FMOD FALSE)
-		endif()
-	endif()
-else()
-	SET(HAVE_FMOD FALSE)
-endif()
-if(NOT HAVE_FMOD AND NOT USE_OPEN_AL OR USE_SDL_MAINLOOP AND NOT USE_OPEN_AL)
-	include(FindSDL)
-	SET(HAVE_SDL ${SDL_FOUND})
-	if(SDL_FOUND)
-		include_directories(${SDL_INCLUDE_DIR})
-		FINDLIB(SDLMIXER_LIBRARIES SDL_mixer)
-		if(SDLMIXER_LIBRARIES)
-			SET(HAVE_LIBSDL_MIXER ON)
-		endif()
-		target_link_libraries(openclonk
-			${SDL_LIBRARY}
-			${SDLMIXER_LIBRARIES}
-		)
-	endif()
 endif()
 
 if(HAVE_UPNP)
@@ -1435,12 +1414,6 @@ install(
 )
 
 if (NOT APPLE)
-	add_custom_target(icon32 DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/res/oc32.png)
-	add_custom_target(icon64 DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/res/oc64.png)
-	add_custom_target(icon128 DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/res/oc128.png)
-	add_custom_target(icon256 DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/res/oc256.png)
-	add_custom_target(icon512 DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/res/oc512.png)
-	add_dependencies(data icon32 icon64 icon128 icon256 icon512)
 	install(
 		FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/res/oc32.png
 		DESTINATION share/icons/hicolor/32x32/apps

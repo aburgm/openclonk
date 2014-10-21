@@ -55,6 +55,7 @@ docs/Functions.txt
 
 # Visual studio files
 openclonk.opensdf
+openclonk.manifest
 deps/
 planet/Release
 planet/RelWithDebInfo
@@ -135,7 +136,7 @@ planet/openclonk.sln
 WindowsGamesExplorer.xml
 
 # Mape
-mape
+./mape
 mape-icons.h
 
 

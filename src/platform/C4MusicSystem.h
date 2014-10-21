@@ -21,16 +21,7 @@
 #define INC_C4MusicSystem
 
 #include <C4Group.h>
-
-#if defined(USE_OPEN_AL)
-#ifdef __APPLE__
-#import <OpenAL/al.h>
-#import <OpenAL/alc.h>
-#else
-#include <AL/al.h>
-#include <AL/alc.h>
-#endif
-#endif
+#include <C4SoundIncludes.h>
 
 class C4MusicFileInfoNode;
 class C4MusicFile;
@@ -77,7 +68,7 @@ protected:
 	bool MODInitialized;
 	bool InitializeMOD();
 	void DeinitializeMOD();
-#ifdef USE_OPEN_AL
+#if AUDIO_TK == AUDIO_TK_OPENAL
 private:
 	ALCdevice* alcDevice;
 	ALCcontext* alcContext;

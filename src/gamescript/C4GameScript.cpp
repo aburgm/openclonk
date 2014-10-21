@@ -522,11 +522,19 @@ static long FnMusicLevel(C4PropList * _this, long iLevel)
 	return Application.MusicSystem.SetVolume(iLevel);
 }
 
-static long FnSetPlayList(C4PropList * _this, C4String *szPlayList)
+static long FnSetPlayList(C4PropList * _this, C4String *szPlayList, Nillable<long> iAtPlayer)
 {
+	// If a player number is provided, set play list for clients where given player is local only
+	if (!iAtPlayer.IsNil() && iAtPlayer != NO_OWNER)
+	{
+		C4Player *at_plr = ::Players.Get(iAtPlayer);
+		if (!at_plr) return 0;
+		if (!at_plr->LocalControl) return 0;
+	}
+	// Set playlist; count entries
 	long iFilesInPlayList = Application.MusicSystem.SetPlayList(FnStringPar(szPlayList));
 	Game.PlayList.Copy(FnStringPar(szPlayList));
-	// network/record/replay: return 0
+	// network/record/replay: return 0 for sync reasons
 	if (::Control.SyncMode()) return 0;
 	return iFilesInPlayList;
 }
@@ -706,12 +714,14 @@ static bool FnSetPlayerZoomByViewRange(C4PropList * _this, long plr_idx, long ra
 		C4Player *plr = ::Players.Get(plr_idx);
 		if (!plr) return false;
 		// adjust values in player
+		if (flags & PLRZOOM_LimitMin) plr->SetMinZoomByViewRange(range_wdt, range_hgt, !!(flags & PLRZOOM_NoIncrease), !!(flags & PLRZOOM_NoDecrease));
+		if (flags & PLRZOOM_LimitMax) plr->SetMaxZoomByViewRange(range_wdt, range_hgt, !!(flags & PLRZOOM_NoIncrease), !!(flags & PLRZOOM_NoDecrease));
+		// set values after setting min/max to ensure old limits don't block new value
 		if ((flags & PLRZOOM_Set) || !(flags & (PLRZOOM_LimitMin | PLRZOOM_LimitMax)))
 		{
 			plr->SetZoomByViewRange(range_wdt, range_hgt, !!(flags & PLRZOOM_Direct), !!(flags & PLRZOOM_NoIncrease), !!(flags & PLRZOOM_NoDecrease));
 		}
-		if (flags & PLRZOOM_LimitMin) plr->SetMinZoomByViewRange(range_wdt, range_hgt, !!(flags & PLRZOOM_NoIncrease), !!(flags & PLRZOOM_NoDecrease));
-		if (flags & PLRZOOM_LimitMax) plr->SetMaxZoomByViewRange(range_wdt, range_hgt, !!(flags & PLRZOOM_NoIncrease), !!(flags & PLRZOOM_NoDecrease));
+
 	}
 	return true;
 }
@@ -755,12 +765,13 @@ static bool FnSetPlayerZoom(C4PropList * _this, long plr_idx, long zoom, long pr
 		C4Player *plr = ::Players.Get(plr_idx);
 		if (!plr) return false;
 		// adjust values in player
+		if (flags & PLRZOOM_LimitMin) plr->SetMinZoom(fZoom, !!(flags & PLRZOOM_NoIncrease), !!(flags & PLRZOOM_NoDecrease));
+		if (flags & PLRZOOM_LimitMax) plr->SetMaxZoom(fZoom, !!(flags & PLRZOOM_NoIncrease), !!(flags & PLRZOOM_NoDecrease));
 		if ((flags & PLRZOOM_Set) || !(flags & (PLRZOOM_LimitMin | PLRZOOM_LimitMax)))
 		{
 			plr->SetZoom(fZoom, !!(flags & PLRZOOM_Direct), !!(flags & PLRZOOM_NoIncrease), !!(flags & PLRZOOM_NoDecrease));
 		}
-		if (flags & PLRZOOM_LimitMin) plr->SetMinZoom(fZoom, !!(flags & PLRZOOM_NoIncrease), !!(flags & PLRZOOM_NoDecrease));
-		if (flags & PLRZOOM_LimitMax) plr->SetMaxZoom(fZoom, !!(flags & PLRZOOM_NoIncrease), !!(flags & PLRZOOM_NoDecrease));
+
 	}
 	return true;
 }
@@ -1723,6 +1734,16 @@ static C4Value FnPV_KeyFrames(C4PropList * _this, C4Value *pars)
 	return C4Value(pArray);
 }
 
+static C4ValueArray* FnPV_Sin(C4PropList * _this, C4Value value, C4Value amplitude, C4Value offset)
+{
+	C4ValueArray *pArray = new C4ValueArray(5);
+	pArray->SetItem(0, C4VInt(C4PV_Sin));
+	pArray->SetItem(1, value);
+	pArray->SetItem(2, amplitude);
+	pArray->SetItem(3, offset);
+	return pArray;
+}
+
 static C4ValueArray* FnPV_Speed(C4PropList * _this, C4Value factor, C4Value startValue)
 {
 	C4ValueArray *pArray = new C4ValueArray(3);
@@ -2262,7 +2283,7 @@ static bool FnCustomMessage(C4PropList * _this, C4String *pMsg, C4Object *pObj, 
 {
 	// safeties
 	if (pSrc)
-		if(!pSrc->GetDef() && !pSrc->GetObject()) return false;
+		if(!pSrc->GetDef() && !pSrc->GetObject() && !pSrc->GetPropertyPropList(P_Source)) return false;
 	if (!pMsg) return false;
 	if (pObj && !pObj->Status) return false;
 	const char *szMsg = pMsg->GetCStr();
@@ -2464,6 +2485,29 @@ static int32_t FnGetStartupPlayerCount(C4PropList * _this)
 	return ::Game.StartupPlayerCount;
 }
 
+static bool FnGainScenarioAchievement(C4PropList * _this, C4String *achievement_name, Nillable<long> avalue, Nillable<long> player, C4String *for_scenario)
+{
+	// safety
+	if (!achievement_name || !achievement_name->GetData().getLength()) return false;
+	// default parameter
+	long value = avalue.IsNil() ? 1 : (long)avalue;
+	// gain achievement
+	bool result = true;
+	if (!player.IsNil() && player != NO_OWNER)
+	{
+		C4Player *plr = ::Players.Get(player);
+		if (!plr) return false;
+		result = plr->GainScenarioAchievement(achievement_name->GetCStr(), value, for_scenario ? for_scenario->GetCStr() : NULL);
+	}
+	else
+	{
+		for (C4Player *plr = ::Players.First; plr; plr = plr->Next)
+			if (!plr->GainScenarioAchievement(achievement_name->GetCStr(), value, for_scenario ? for_scenario->GetCStr() : NULL))
+				result = false;
+	}
+	return true;
+}
+
 extern C4ScriptConstDef C4ScriptGameConstMap[];
 extern C4ScriptFnDef C4ScriptGameFnMap[];
 
@@ -2631,6 +2675,7 @@ void InitGameFunctionMap(C4AulScriptEngine *pEngine)
 	AddFunc(pEngine, "PlayerObjectCommand", FnPlayerObjectCommand);
 	AddFunc(pEngine, "EditCursor", FnEditCursor);
 	AddFunc(pEngine, "CreateRope", FnCreateRope);
+	AddFunc(pEngine, "GainScenarioAchievement", FnGainScenarioAchievement);
 
 	F(GetPlrKnowledge);
 	F(GetComponent);
@@ -2656,6 +2701,7 @@ void InitGameFunctionMap(C4AulScriptEngine *pEngine)
 	F(PV_Wind);
 	F(PV_Gravity);
 	// F(PV_KeyFrames); added below
+	F(PV_Sin);
 	F(PC_Die);
 	F(PC_Bounce);
 	F(PC_Stop);

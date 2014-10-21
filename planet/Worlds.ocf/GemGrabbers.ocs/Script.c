@@ -13,11 +13,6 @@
 */
 
 
-// Scenario properties which can be set later by the lobby options.
-static const SCENOPT_Material = 3; // Amount of material available from start.
-static const SCENOPT_MapSize = 1; // Size of the map.
-static const SCENOPT_Difficulty = 2; // Difficulty settings.
-
 protected func Initialize()
 {
 	// Rules: team account and buying at flagpole.
@@ -27,19 +22,26 @@ protected func Initialize()
 	// Goal: Sell Gems, amount depends on difficulty and initial availability.
 	var gems = (4 * GetMaterialCount(Material("Ruby"))) / (5 * GetMaterialVal("Blast2ObjectRatio", "Material", Material("Ruby")));
 	gems += (4 * GetMaterialCount(Material("Amethyst"))) / (5 * GetMaterialVal("Blast2ObjectRatio", "Material", Material("Amethyst")));
-	var percentage = 55 + 15 * SCENOPT_Difficulty;
+	var percentage = 55 + 15 * SCENPAR_Difficulty;
 	var goal = CreateObject(Goal_SellGems);
 	goal->SetTargetAmount((gems * percentage) / 100);
 	
 	// Initialize different parts of the scenario.
-	InitEnvironment();
+	InitEnvironment(SCENPAR_Difficulty);
 	InitVegetation();
 	InitAnimals();
-	InitResources();
-	InitMainIsland(SCENOPT_Material);
-	InitIslands(SCENOPT_Material);
+	InitResources(SCENPAR_Difficulty);
+	InitMainIsland(4 - SCENPAR_Difficulty);
+	InitIslands(4 - SCENPAR_Difficulty);
 		
 	return;
+}
+
+protected func OnGoalsFulfilled()
+{
+	// Give the remaining players their achievement.
+	GainScenarioAchievement("Done", BoundBy(SCENPAR_Difficulty, 1, 3));
+	return false;
 }
 
 
@@ -47,12 +49,11 @@ protected func Initialize()
 
 protected func InitializePlayer(int plr)
 {
-	// Harsh zoom range
-	SetPlayerZoomByViewRange(plr, 500, 350, PLRZOOM_LimitMax);
-	SetPlayerZoomByViewRange(plr, 500, 350, PLRZOOM_Direct);
+	// Harsh zoom range.
+	SetPlayerZoomByViewRange(plr, 500, nil, PLRZOOM_Direct | PLRZOOM_LimitMax);
 	SetPlayerViewLock(plr, true);
 	
-	// Position and materials
+	// Position and materials.
 	var i, crew;
 	for (i = 0; crew = GetCrew(plr, i); ++i)
 	{
@@ -62,11 +63,16 @@ protected func InitializePlayer(int plr)
 	}
 	
 	// Give the player its knowledge.
-	GivePlayerKnowledge(plr);
+	GivePlayerBasicKnowledge(plr);
+	GivePlayerPumpingKnowledge(plr);
+	GivePlayerWeaponryKnowledge(plr);
+	GivePlayerAdvancedKnowledge(plr);
+	GivePlayerAirKnowledge(plr);
+	RemovePlayerSpecificKnowledge(plr, [InventorsLab, Shipyard, WallKit]);
 	
 	// Only clonks for sale at the homebase, depending on diffuculty: 3, 5, 10 available.
-	var nr_clonks = Max(9 - 2 * SCENOPT_Difficulty, 1);
-	if (SCENOPT_Difficulty == 1)
+	var nr_clonks = Max(9 - 2 * SCENPAR_Difficulty, 1);
+	if (SCENPAR_Difficulty == 1)
 		nr_clonks += 3;
 	SetBaseMaterial(plr, Clonk, nr_clonks);
 	SetBaseProduction(plr, Clonk, nr_clonks);
@@ -78,29 +84,11 @@ protected func InitializePlayer(int plr)
 	return;
 }
 
-// Give the relevant knowledge to each player.
-private func GivePlayerKnowledge(int plr)
-{
-	var structures = [Flagpole, Basement, WindGenerator, SteamEngine, Compensator, Foundry, Sawmill, Elevator, Pump, ToolsWorkshop, ChemicalLab, Armory, Chest, Windmill, Kitchen];
-	var items = [Loam, GoldBar, Metal, Shovel, Axe, Hammer, Pickaxe, Barrel, Bucket, Dynamite, DynamiteBox, PowderKeg, Pipe, TeleGlove, WindBag, GrappleBow, Boompack, Balloon];
-	var weapons = [Bow, Arrow, Club, Sword, Javelin, Shield, Musket, LeadShot, IronBomb, GrenadeLauncher];
-	var vehicles = [Lorry, Catapult, Cannon, Airship, Plane];
-	for (var structure in structures)
-		SetPlrKnowledge(plr, structure);
-	for (var item in items)
-		SetPlrKnowledge(plr, item);
-	for (var weapon in weapons)
-		SetPlrKnowledge(plr, weapon);	
-	for (var vehicle in vehicles)
-		SetPlrKnowledge(plr, vehicle);
-	return;
-}
-
 
 /*-- Scenario Initialization --*/
 
 // Initializes environment and disasters.
-private func InitEnvironment()
+private func InitEnvironment(int difficulty)
 {
 	// Set time to almost night and have stars.	
 	CreateObject(Environment_Celestial);
@@ -110,11 +98,9 @@ private func InitEnvironment()
 	
 	// Clouds and rain.
 	Cloud->Place(15);
-	Cloud->SetPrecipitation("Water", 100 + 25 * SCENOPT_Difficulty);
+	Cloud->SetPrecipitation("Water", 100 + 25 * difficulty);
 	for (var cloud in FindObjects(Find_ID(Cloud)))
 	{
-		while (cloud->RemoveVertex())
-			/* Empty */;
 		// Make some clouds appear in the foreground with high alpha.
 		if (Random(3) == 0)
 		{
@@ -127,8 +113,8 @@ private func InitEnvironment()
 	SetSkyParallax(0, 20, 20);
 	
 	// Disasters: meteors and lightning.
-	Meteor->SetChance(2 * SCENOPT_Difficulty);
-	Cloud->SetLightning(8 * SCENOPT_Difficulty);
+	Meteor->SetChance(2 * difficulty);
+	Cloud->SetLightning(8 * difficulty);
 	
 	return;
 }
@@ -176,10 +162,11 @@ private func InitAnimals()
 }
 
 // Initializes the growth of gem stalactites.
-private func InitResources()
+private func InitResources(int difficulty)
 {
 	// Add an effect to ensure gem stalactites are grown when the player seems unable to complete the goal.
-	AddEffect("GrowGemStalactites", nil, 100, 60 * 36, nil);
+	var effect = AddEffect("GrowGemStalactites", nil, 100, 60 * 36, nil, nil, difficulty);
+	effect.difficulty = difficulty;
 	return;
 }
 
@@ -193,7 +180,7 @@ global func FxGrowGemStalactitesTimer(object target, proplist effect, int time)
 	if (!goal)
 		return 1;
 	// The comparison depends on the difficulty settings.	
-	if (gems - goal->GetTargetAmount() > 5 * (4 - SCENOPT_Difficulty))
+	if (gems - goal->GetTargetAmount() > 5 * (4 - effect.difficulty))
 		return 1;	
 		
 	// Find a location to grow a stalactite, possible away from others and clonks.
