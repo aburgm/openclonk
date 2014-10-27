@@ -21,7 +21,7 @@
 #include <C4Landscape.h>
 #include <C4Rope.h>
 
-//#define C4ROPE_DRAW_DEBUG
+#define C4ROPE_DRAW_DEBUG
 
 namespace
 {
@@ -654,8 +654,8 @@ void C4RopeElement::Execute(const C4Rope* rope, C4Real dt)
 		// Compute old and new coordinates
 		const int old_x = fixtoi(GetX());
 		const int old_y = fixtoi(GetY());
-		const int new_x = fixtoi(GetX() + dt * vx);
-		const int new_y = fixtoi(GetY() + dt * vy);
+		const int new_x = fixtoi(GetX() + dt * GetVx());
+		const int new_y = fixtoi(GetY() + dt * GetVy());
 
 		int prev_x, prev_y;
 		const bool haveColl = FindPointOnLine(old_x, old_y, new_x, new_y,
@@ -678,8 +678,10 @@ void C4RopeElement::Execute(const C4Rope* rope, C4Real dt)
 				y = itofix(prev_y) - oldy;
 			}
 
+			// TODO: Apply this friction force perpendicular to surface normal
+
 			// Apply friction force
-			fx -= rope->GetOuterFriction() * vx; fy -= rope->GetOuterFriction() * vy;
+			fx -= rope->GetOuterFriction() * GetVx(); fy -= rope->GetOuterFriction() * GetVy();
 			// Force redirection so that not every single pixel on a
 			// chunky landscape is an obstacle for the rope.
 			SetForceRedirection(rope, 0, 0);
@@ -687,8 +689,8 @@ void C4RopeElement::Execute(const C4Rope* rope, C4Real dt)
 		else
 		{
 			// Don't use new_x to keep subpixel precision
-			x += dt * vx;
-			y += dt * vy;
+			x += dt * GetVx();
+			y += dt * GetVy();
 		}
 	}
 
@@ -774,7 +776,7 @@ bool C4RopeElement::SetForceRedirectionByLookAround(const C4Rope* rope, int ox, 
 
 C4Rope::C4Rope(C4PropList* Prototype, C4Object* first_obj, C4Object* second_obj, C4Real segment_length, C4DefGraphics* graphics):
 	C4PropListNumbered(Prototype), Width(5.0f), Graphics(graphics), SegmentCount(fixtoi(ObjectDistance(first_obj, second_obj)/segment_length)),
-	l(segment_length), k(Fix1*20), mu(Fix1*3), eta(Fix1*4), NumIterations(10),
+	l(segment_length), k(Fix1*20 /* TODO: Too much spring like when hanging in air */), mu(Fix1*3), eta(Fix1*4), NumIterations(10),
 	FrontAutoSegmentation(Fix0), BackAutoSegmentation(Fix0), FrontPull(Fix0), BackPull(Fix0)
 {
 	if(!PathFree(first_obj->GetX(), first_obj->GetY(), second_obj->GetX(), second_obj->GetY()))
@@ -785,7 +787,7 @@ C4Rope::C4Rope(C4PropList* Prototype, C4Object* first_obj, C4Object* second_obj,
 	Front = new C4RopeElement(first_obj, false);
 	Back = new C4RopeElement(second_obj, false);
 	
-	const C4Real m(Fix1*5); // TODO: This should be a property
+	const C4Real m(Fix1); // TODO: This should be a property
 
 	C4RopeElement* prev_seg = Front;
 	for(int32_t i = 0; i < SegmentCount; ++i)
