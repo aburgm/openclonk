@@ -15,7 +15,7 @@ func InitializePlayer(int plr)
 	var clonk = GetCrew(plr, 0);
 	var  a = CreateObject(Rock, clonk->GetX(), clonk->GetY()-100, NO_OWNER);
 	a->SetCategory(C4D_StaticBack);
-	var rope = CreateRope(a, clonk, 5, LiftTower_Rope);
+	//var rope = CreateRope(a, clonk, 5, LiftTower_Rope);
 
-	rope->SetFrontAutoSegmentation(200);
+	//rope->SetFrontAutoSegmentation(200);
 }
