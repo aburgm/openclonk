@@ -59,7 +59,7 @@ namespace
 
 	// Helper function for Draw: determines vertex positions for one segment
 	void VertexPos(Vertex& out1, Vertex& out2, Vertex& out3, Vertex& out4,
-		             const Vertex& v1, const Vertex& v2, float w)
+	               const Vertex& v1, const Vertex& v2, float w)
 	{
 		// This is for graphics only, so plain sqrt() is OK.
 		const float l = sqrt( (v1.x - v2.x)*(v1.x - v2.x) + (v1.y - v2.y)*(v1.y - v2.y));
@@ -344,6 +344,51 @@ namespace
 		}
 		const int to1x, to1y, to2x, to2y, to3x, to3y;
 	};
+
+	std::vector<point_t> GetSurfaceNormalProbes(unsigned int n_probe_pix, unsigned int n_probes)
+	{
+		std::vector<point_t> probes;
+		probes.reserve(n_probes);
+
+		for(unsigned int i = 0; i < n_probes; ++i)
+		{
+			C4Real angle = itofix(i * 360, n_probes);
+			point_t p(fixtoi(itofix(n_probe_pix) * Sin(angle)), fixtoi(itofix(n_probe_pix) * Cos(angle)));
+			probes.push_back(p);
+		}
+
+		return probes;
+	}
+
+	void GetSurfaceNormal(C4Real x, C4Real y, C4Real& nx, C4Real& ny)
+	{
+		static const unsigned int N_PROBE_PIX = 5;
+		static const unsigned int N_PROBES = 12;
+		static const std::vector<point_t> PROBES = GetSurfaceNormalProbes(N_PROBE_PIX, N_PROBES);
+
+		nx = Fix0; ny = Fix0;
+		for(unsigned int i = 0; i < N_PROBES; ++i)
+		{
+			int px, py;
+			if(!FindPointOnLine(fixtoi(x), fixtoi(y), fixtoi(x) + PROBES[i].x, fixtoi(y) + PROBES[i].y, &px, &py, NULL, NULL, StopAtSolid()))
+				{ px = fixtoi(x) + PROBES[i].x; py = fixtoi(y) + PROBES[i].y; }
+
+			nx += itofix(px - fixtoi(x));
+			ny += itofix(py - fixtoi(y));
+		}
+
+		// Normalize
+		C4Real len = Len(nx, ny);
+		if(len > itofix(2*N_PROBE_PIX, 5))
+		{
+			nx /= len;
+			ny /= len;
+		}
+		else
+		{
+			nx = ny = Fix0;
+		}
+	}
 }
 
 C4RopeElement::C4RopeElement(C4Object* obj, bool fixed):
