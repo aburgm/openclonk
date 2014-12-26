@@ -97,6 +97,7 @@ public:
 
 private:
 	std::vector<StdMeshTrack*> Tracks; // bone-indexed
+	StdMeshSkeleton* OriginSkeleton; // saves, where the animation came from
 };
 
 class StdMeshSkeleton
@@ -118,7 +119,11 @@ public:
 
 	// TODO: This code should maybe better be placed in StdMeshLoader...
 	void MirrorAnimation(const StdStrBuf& name, const StdMeshAnimation& animation);
+	void InsertAnimation(const StdMeshAnimation& animation);
+	void InsertAnimation(StdMeshSkeleton& source, const StdMeshAnimation& animation);
 	void PostInit();
+
+	std::vector<int> GetMatchingBones(const StdMeshSkeleton& skeleton) const;
 
 private:
 	void AddMasterBone(StdMeshBone* bone);
@@ -185,6 +190,7 @@ public:
 	const std::vector<Vertex>& GetSharedVertices() const { return SharedVertices; }
 
 	const StdMeshSkeleton& GetSkeleton() const { return *Skeleton; }
+	StdMeshSkeleton& GetSkeleton() { return *Skeleton; }
 
 	const StdMeshBox& GetBoundingBox() const { return BoundingBox; }
 	float GetBoundingRadius() const { return BoundingRadius; }
@@ -199,7 +205,7 @@ private:
 	std::vector<Vertex> SharedVertices;
 
 	std::vector<StdSubMesh> SubMeshes;
-	std::shared_ptr<const StdMeshSkeleton> Skeleton; // Skeleton
+	std::shared_ptr<StdMeshSkeleton> Skeleton; // Skeleton
 
 	StdMeshBox BoundingBox;
 	float BoundingRadius;

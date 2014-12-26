@@ -184,16 +184,13 @@ bool C4DefGraphics::LoadSkeleton(C4Group &hGroup, const char* szFileName, StdMes
 	{
 		if (!hGroup.LoadEntry(szFileName, &buf, &size, 1)) return false;
 
-		StdCopyStrBuf filename = StdCopyStrBuf();
-		StdMeshSkeletonLoader::MakeFullSkeletonPath(filename, hGroup.GetName(), szFileName);
-
 		if (SEqualNoCase(GetExtension(szFileName), "xml"))
 		{
-			loader.LoadSkeletonXml(filename, buf, size);
+			loader.LoadSkeletonXml(hGroup.GetName(), szFileName, buf, size);
 		}
 		else
 		{
-			loader.LoadSkeletonBinary(filename, buf, size);
+			loader.LoadSkeletonBinary(hGroup.GetName(), szFileName, buf, size);
 		}
 
 		delete[] buf;

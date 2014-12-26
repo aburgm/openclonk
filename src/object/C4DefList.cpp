@@ -31,7 +31,7 @@
 
 #include <StdMeshLoader.h>
 
-C4DefList::C4DefList() : SkeletonLoader(new StdMeshSkeletonLoader)
+C4DefList::C4DefList()
 {
 	Default();
 }
@@ -69,7 +69,7 @@ int32_t C4DefList::Load(C4Group &hGroup, DWORD dwLoadWhat,
 	// Load primary definition
 	if ((nDef=new C4Def))
 	{
-		if (nDef->Load(hGroup, *SkeletonLoader, dwLoadWhat, szLanguage, pSoundSystem) && Add(nDef, fOverload))
+		if (nDef->Load(hGroup, SkeletonLoader, dwLoadWhat, szLanguage, pSoundSystem) && Add(nDef, fOverload))
 			{ iResult++; fPrimaryDef=true; }
 		else
 			{ delete nDef; }
@@ -191,6 +191,8 @@ void C4DefList::Clear()
 	FirstDef=NULL;
 	// clear quick access table
 	table.clear();
+	// clear loaded skeletons
+	SkeletonLoader.Clear();
 }
 
 C4Def* C4DefList::ID2Def(C4ID id)
@@ -356,10 +358,12 @@ bool C4DefList::Reload(C4Def *pDef, DWORD dwLoadWhat, const char *szLanguage, C4
 	// Reload def
 	C4Group hGroup;
 	if (!hGroup.Open(pDef->Filename)) return false;
-	if (!pDef->Load( hGroup, *SkeletonLoader, dwLoadWhat, szLanguage, pSoundSystem)) return false;
+	if (!pDef->Load( hGroup, SkeletonLoader, dwLoadWhat, szLanguage, pSoundSystem)) return false;
 	hGroup.Close();
 	// rebuild quick access table
 	BuildTable();
+	// handle skeleton appends and includes
+	AppendSkeletons();
 	// update script engine - this will also do include callbacks and Freeze() this
 	::ScriptEngine.ReLink(this);
 	// restore graphics
@@ -412,4 +416,31 @@ void C4DefList::BuildTable()
 	table.clear();
 	for (C4Def *def = FirstDef; def; def = def->Next)
 		table.insert(std::make_pair(def->id, def));
+}
+
+void C4DefList::AppendSkeletons()
+{
+		SkeletonLoader.ResolveIncompleteSkeletons();
+}
+
+StdMeshSkeleton* C4SkeletonManager::GetSkeletonByDefinition(const char* definition) const
+{
+	//DebugLogF("GetSkeletonByDefinition %s", definition);
+
+	// find the definition
+	C4Def* def = ::Definitions.ID2Def(C4ID(definition));
+	assert(def != NULL);
+
+	// append animations, if the definition has a mesh
+	if (!def->Graphics.IsMesh())
+	{
+		DebugLogF("WARNING: Looking up skeleton from definition '%s' failed, because the definition has no mesh", definition);
+		return NULL;
+	}
+	else
+	{
+		StdMesh* mesh = def->Graphics.Mesh;
+
+		return &(mesh->GetSkeleton());
+	}
 }
