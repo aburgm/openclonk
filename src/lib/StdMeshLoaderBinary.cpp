@@ -492,8 +492,9 @@ void StdMeshSkeletonLoader::DoResetSkeletons()
 		{
 			if (animations->second.OriginSkeleton != &(*(skeleton)))
 			{
-				//DebugLogF("Erasing animation %s from %s", animations->first.getData(), it->first.getData());
+				DebugLogF("Erasing animation %s from %s", animations->first.getData(), it->first.getData());
 				animations = skeleton->Animations.erase(animations);
+				//skeleton->Animations.erase(animations++);
 			}
 			else
 			{
@@ -534,7 +535,7 @@ void StdMeshSkeletonLoader::DoAppendSkeletons()
 				}
 				else
 				{
-					//DebugLogF("Appending animation %s to definition %s", animations->second.Name.getData(), id.getData());
+					DebugLogF("Appending animation %s to definition %s", animations->second.Name.getData(), id.getData());
 					destination->InsertAnimation(*source, animations->second);
 				}
 			}
