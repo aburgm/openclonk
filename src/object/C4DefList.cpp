@@ -31,7 +31,7 @@
 
 #include <StdMeshLoader.h>
 
-C4DefList::C4DefList()
+C4DefList::C4DefList() : SkeletonLoader(new C4SkeletonManager)
 {
 	Default();
 }
@@ -69,7 +69,7 @@ int32_t C4DefList::Load(C4Group &hGroup, DWORD dwLoadWhat,
 	// Load primary definition
 	if ((nDef=new C4Def))
 	{
-		if (nDef->Load(hGroup, SkeletonLoader, dwLoadWhat, szLanguage, pSoundSystem) && Add(nDef, fOverload))
+		if (nDef->Load(hGroup, *SkeletonLoader, dwLoadWhat, szLanguage, pSoundSystem) && Add(nDef, fOverload))
 			{ iResult++; fPrimaryDef=true; }
 		else
 			{ delete nDef; }
@@ -192,7 +192,7 @@ void C4DefList::Clear()
 	// clear quick access table
 	table.clear();
 	// clear loaded skeletons
-	SkeletonLoader.Clear();
+	SkeletonLoader->Clear();
 }
 
 C4Def* C4DefList::ID2Def(C4ID id)
@@ -358,7 +358,7 @@ bool C4DefList::Reload(C4Def *pDef, DWORD dwLoadWhat, const char *szLanguage, C4
 	// Reload def
 	C4Group hGroup;
 	if (!hGroup.Open(pDef->Filename)) return false;
-	if (!pDef->Load( hGroup, SkeletonLoader, dwLoadWhat, szLanguage, pSoundSystem)) return false;
+	if (!pDef->Load( hGroup, *SkeletonLoader, dwLoadWhat, szLanguage, pSoundSystem)) return false;
 	hGroup.Close();
 	// rebuild quick access table
 	BuildTable();
@@ -420,7 +420,7 @@ void C4DefList::BuildTable()
 
 void C4DefList::AppendAndIncludeSkeletons()
 {
-		SkeletonLoader.ResolveIncompleteSkeletons();
+		SkeletonLoader->ResolveIncompleteSkeletons();
 }
 
 StdMeshSkeleton* C4SkeletonManager::GetSkeletonByDefinition(const char* definition) const

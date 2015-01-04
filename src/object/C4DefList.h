@@ -76,7 +76,7 @@ public:
 	virtual bool DrawFontImage(const char* szImageTag, C4Facet& rTarget, C4DrawTransform* pTransform);
 	virtual float GetFontImageAspect(const char* szImageTag);
 private:
-	C4SkeletonManager SkeletonLoader;
+	std::unique_ptr<C4SkeletonManager> SkeletonLoader;
 };
 
 extern C4DefList Definitions;
