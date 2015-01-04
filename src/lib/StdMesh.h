@@ -97,7 +97,7 @@ public:
 
 private:
 	std::vector<StdMeshTrack*> Tracks; // bone-indexed
-	StdMeshSkeleton* OriginSkeleton; // saves, where the animation came from
+	const class StdMeshSkeleton* OriginSkeleton; // saves, where the animation came from
 };
 
 class StdMeshSkeleton
@@ -120,7 +120,7 @@ public:
 	// TODO: This code should maybe better be placed in StdMeshLoader...
 	void MirrorAnimation(const StdStrBuf& name, const StdMeshAnimation& animation);
 	void InsertAnimation(const StdMeshAnimation& animation);
-	void InsertAnimation(StdMeshSkeleton& source, const StdMeshAnimation& animation);
+	void InsertAnimation(const StdMeshSkeleton& source, const StdMeshAnimation& animation);
 	void PostInit();
 
 	std::vector<int> GetMatchingBones(const StdMeshSkeleton& skeleton) const;

@@ -151,7 +151,7 @@ bool C4Game::InitDefs()
 	::Definitions.BuildTable();
 
 	// handle skeleton appends and includes
-	::Definitions.AppendSkeletons();
+	::Definitions.AppendAndIncludeSkeletons();
 
 	// Done
 	return true;

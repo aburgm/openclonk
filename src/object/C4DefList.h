@@ -26,7 +26,7 @@
 
 class C4SkeletonManager : public StdMeshSkeletonLoader
 {
-	StdMeshSkeleton* GetSkeletonByDefinition(const char* definition) const;
+	virtual StdMeshSkeleton* GetSkeletonByDefinition(const char* definition) const;
 };
 
 class C4DefList: public CStdFont::CustomImages
@@ -70,7 +70,7 @@ public:
 	void ResetIncludeDependencies(); // resets all pointers into foreign definitions caused by include chains
 	void CallEveryDefinition();
 	void Synchronize();
-	void AppendSkeletons();
+	void AppendAndIncludeSkeletons();
 
 	// callback from font renderer: get ID image
 	virtual bool DrawFontImage(const char* szImageTag, C4Facet& rTarget, C4DrawTransform* pTransform);

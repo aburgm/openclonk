@@ -363,7 +363,7 @@ bool C4DefList::Reload(C4Def *pDef, DWORD dwLoadWhat, const char *szLanguage, C4
 	// rebuild quick access table
 	BuildTable();
 	// handle skeleton appends and includes
-	AppendSkeletons();
+	AppendAndIncludeSkeletons();
 	// update script engine - this will also do include callbacks and Freeze() this
 	::ScriptEngine.ReLink(this);
 	// restore graphics
@@ -418,7 +418,7 @@ void C4DefList::BuildTable()
 		table.insert(std::make_pair(def->id, def));
 }
 
-void C4DefList::AppendSkeletons()
+void C4DefList::AppendAndIncludeSkeletons()
 {
 		SkeletonLoader.ResolveIncompleteSkeletons();
 }

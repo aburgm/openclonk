@@ -493,7 +493,7 @@ void StdMeshSkeletonLoader::DoResetSkeletons()
 			if (animations->second.OriginSkeleton != &(*(skeleton)))
 			{
 				//DebugLogF("Erasing animation %s from %s", animations->first.getData(), it->first.getData());
-				skeleton->Animations.erase(animations++);
+				animations = skeleton->Animations.erase(animations);
 			}
 			else
 			{

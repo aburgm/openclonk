@@ -163,5 +163,6 @@ slice(XXX) { ... }
       <li>If both "MeshTransformation" and <funclink>SetObjDrawTransform</funclink> are set then first the "MeshTransformation" is applied to the mesh and then <funclink>SetObjDrawTransform</funclink>.</li>
     </ul>
   </part>
-  <author>Clonk-Karl, Marky</author><date>2015-01</date>
+  <author>Clonk-Karl</author><date>2010-04</date>
+  <author>Marky</author><date>2015-01/<date>
 </doc>

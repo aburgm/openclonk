@@ -452,7 +452,7 @@ void StdMeshSkeleton::InsertAnimation(const StdMeshAnimation& animation)
 	Animations.insert(std::make_pair(animation.Name, animation));
 }
 
-void StdMeshSkeleton::InsertAnimation(StdMeshSkeleton& source, const StdMeshAnimation& animation)
+void StdMeshSkeleton::InsertAnimation(const StdMeshSkeleton& source, const StdMeshAnimation& animation)
 {
 	assert(Animations.find(animation.Name) == Animations.end());
 
@@ -460,6 +460,7 @@ void StdMeshSkeleton::InsertAnimation(StdMeshSkeleton& source, const StdMeshAnim
 	std::vector<int> bone_index_source = source.GetMatchingBones(*this);
 
 	// create a new animation and copy the basic data from the other animation
+	//StdMeshAnimation anim;
 	StdMeshAnimation& anim = *(new StdMeshAnimation());
 	anim.Name = animation.Name;
 	anim.Length = animation.Length;
@@ -469,8 +470,9 @@ void StdMeshSkeleton::InsertAnimation(StdMeshSkeleton& source, const StdMeshAnim
 	// sort the tracks according to the matched bones
 	for (unsigned int i = 0; i < anim.Tracks.size(); ++i)
 	{
-		if (bone_index_source[i] > -1)
+		if (bone_index_source[i] > -1) // && animation.Tracks[bone_index_source[i]] != NULL)
 		{
+			//anim.Tracks[i] = new StdMeshTrack(*animation.Tracks[bone_index_source[i]]);
 			anim.Tracks[i] = animation.Tracks[bone_index_source[i]];
 		}
 	}
