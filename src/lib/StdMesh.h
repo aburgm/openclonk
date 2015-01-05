@@ -105,7 +105,7 @@ class StdMeshSkeleton
 	friend class StdMeshSkeletonLoader;
 	friend class StdMeshXML;
 	friend class StdMesh;
-	friend class StdMeshUpdate;
+	friend class StdMeshAnimationUpdate;
 
 	StdMeshSkeleton();
 public:
@@ -291,6 +291,7 @@ private:
 class StdMeshInstance
 {
 	friend class StdMeshMaterialUpdate;
+	friend class StdMeshAnimationUpdate;
 	friend class StdMeshUpdate;
 public:
 	StdMeshInstance(const StdMesh& mesh, float completion = 1.0f);
@@ -394,6 +395,7 @@ public:
 	{
 		friend class StdMeshInstance;
 		friend class StdMeshUpdate;
+		friend class StdMeshAnimationUpdate;
 	public:
 		enum NodeType { LeafNode, CustomNode, LinearInterpolationNode };
 

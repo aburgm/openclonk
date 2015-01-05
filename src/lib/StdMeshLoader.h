@@ -64,12 +64,19 @@ public:
 		IncludeSkeletons.clear();
 	}
 
+	// Allows to iterate over loaded skeletons:
+	typedef std::map<StdCopyStrBuf, std::shared_ptr<StdMeshSkeleton>> SkeletonMap;
+	typedef SkeletonMap::const_iterator skeleton_iterator;
+
+	skeleton_iterator skeletons_begin() const { return Skeletons.begin(); }
+	skeleton_iterator skeletons_end() const { return Skeletons.end(); }
+
 private:
 	void DoResetSkeletons();
 	void DoAppendSkeletons();
 	void DoIncludeSkeletons();
 
-	std::map<StdCopyStrBuf, std::shared_ptr<StdMeshSkeleton>> Skeletons;
+	SkeletonMap Skeletons;
 	std::map<std::shared_ptr<StdMeshSkeleton>, StdCopyStrBuf> AppendtoSkeletons; // skeleton pointer is unique, id to append to is not
 	std::map<std::shared_ptr<StdMeshSkeleton>, StdCopyStrBuf> IncludeSkeletons;  // skeleton pointer is unique, id to include is not
 };

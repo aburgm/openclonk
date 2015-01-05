@@ -352,7 +352,8 @@ bool C4DefList::Reload(C4Def *pDef, DWORD dwLoadWhat, const char *szLanguage, C4
 	if (!pDef) return false;
 	// backup graphics names and pointers
 	// GfxBackup-dtor will ensure that upon loading-failure all graphics are reset to default
-	C4DefGraphicsPtrBackup GfxBackup(&pDef->Graphics);
+	C4DefGraphicsPtrBackup GfxBackup;
+	GfxBackup.Add(&pDef->Graphics);
 	// Clear def
 	pDef->Clear(); // Assume filename is being kept
 	// Reload def
@@ -367,7 +368,7 @@ bool C4DefList::Reload(C4Def *pDef, DWORD dwLoadWhat, const char *szLanguage, C4
 	// update script engine - this will also do include callbacks and Freeze() this
 	::ScriptEngine.ReLink(this);
 	// restore graphics
-	GfxBackup.AssignUpdate(&pDef->Graphics);
+	GfxBackup.AssignUpdate();
 	// Success
 	return true;
 }
@@ -420,7 +421,12 @@ void C4DefList::BuildTable()
 
 void C4DefList::AppendAndIncludeSkeletons()
 {
-		SkeletonLoader->ResolveIncompleteSkeletons();
+	SkeletonLoader->ResolveIncompleteSkeletons();
+}
+
+StdMeshSkeletonLoader& C4DefList::GetSkeletonLoader()
+{
+	return *SkeletonLoader;
 }
 
 StdMeshSkeleton* C4SkeletonManager::GetSkeletonByDefinition(const char* definition) const
