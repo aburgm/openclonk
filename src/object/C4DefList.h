@@ -24,11 +24,6 @@
 #include <StdMesh.h>
 #include <StdMeshLoader.h>
 
-class C4SkeletonManager : public StdMeshSkeletonLoader
-{
-	virtual StdMeshSkeleton* GetSkeletonByDefinition(const char* definition) const;
-};
-
 class C4DefList: public CStdFont::CustomImages
 {
 public:
@@ -76,7 +71,7 @@ public:
 	virtual bool DrawFontImage(const char* szImageTag, C4Facet& rTarget, C4DrawTransform* pTransform);
 	virtual float GetFontImageAspect(const char* szImageTag);
 private:
-	std::unique_ptr<C4SkeletonManager> SkeletonLoader;
+	std::unique_ptr<StdMeshSkeletonLoader> SkeletonLoader;
 };
 
 extern C4DefList Definitions;

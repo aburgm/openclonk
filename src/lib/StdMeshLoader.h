@@ -40,6 +40,8 @@ public:
 class StdMeshSkeletonLoader
 {
 public:
+	virtual ~StdMeshSkeletonLoader() {}
+
 	void StoreSkeleton(const char* groupname, const char* filename, std::shared_ptr<StdMeshSkeleton> skeleton);
 
 	virtual StdMeshSkeleton* GetSkeletonByDefinition(const char* definition) const = 0;

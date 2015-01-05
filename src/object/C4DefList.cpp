@@ -31,6 +31,34 @@
 
 #include <StdMeshLoader.h>
 
+namespace
+{
+	class C4SkeletonManager : public StdMeshSkeletonLoader
+	{
+		virtual StdMeshSkeleton* GetSkeletonByDefinition(const char* definition) const
+		{
+			//DebugLogF("GetSkeletonByDefinition %s", definition);
+
+			// find the definition
+			C4Def* def = ::Definitions.ID2Def(C4ID(definition));
+			assert(def != NULL);
+
+			// append animations, if the definition has a mesh
+			if (!def->Graphics.IsMesh())
+			{
+				DebugLogF("WARNING: Looking up skeleton from definition '%s' failed, because the definition has no mesh", definition);
+				return NULL;
+			}
+			else
+			{
+				StdMesh* mesh = def->Graphics.Mesh;
+
+				return &(mesh->GetSkeleton());
+			}
+		}
+	};
+}
+
 C4DefList::C4DefList() : SkeletonLoader(new C4SkeletonManager)
 {
 	Default();
@@ -421,26 +449,4 @@ void C4DefList::BuildTable()
 void C4DefList::AppendAndIncludeSkeletons()
 {
 		SkeletonLoader->ResolveIncompleteSkeletons();
-}
-
-StdMeshSkeleton* C4SkeletonManager::GetSkeletonByDefinition(const char* definition) const
-{
-	//DebugLogF("GetSkeletonByDefinition %s", definition);
-
-	// find the definition
-	C4Def* def = ::Definitions.ID2Def(C4ID(definition));
-	assert(def != NULL);
-
-	// append animations, if the definition has a mesh
-	if (!def->Graphics.IsMesh())
-	{
-		DebugLogF("WARNING: Looking up skeleton from definition '%s' failed, because the definition has no mesh", definition);
-		return NULL;
-	}
-	else
-	{
-		StdMesh* mesh = def->Graphics.Mesh;
-
-		return &(mesh->GetSkeleton());
-	}
 }
