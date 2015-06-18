@@ -2571,8 +2571,8 @@ C4Object* C4Game::PlaceVegetation(C4PropList * PropList, int32_t iX, int32_t iY,
 		{
 			// Random hit within target area
 			iTx=iX+Random(iWdt); iTy=iY+Random(iHgt);
-			// Above IFT
-			while ((iTy>0) && GBackIFT(iTx,iTy)) iTy--;
+			// Above tunnel
+			while ((iTy>0) && Landscape.GetBackPix(iTx,iTy) == 0) iTy--;
 			// Still inside bounds
 			if (iTy < iY)
 				continue;
