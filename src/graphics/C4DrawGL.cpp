@@ -103,7 +103,7 @@ namespace
 #undef USERPARAM_CONST
 
 CStdGL::CStdGL():
-	pMainCtx(0), CurrentVBO(0)
+	pMainCtx(0), CurrentVBO(0), NextVAOID(VAOIDs.end())
 {
 	GenericVBOs[0] = 0;
 	Default();
