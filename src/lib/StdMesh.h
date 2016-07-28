@@ -77,7 +77,6 @@ class StdMeshTrack
 public:
 	StdMeshTransformation GetTransformAt(float time, float length) const;
 
-private:
 	std::map<float, StdMeshKeyFrame> Frames;
 };
 
@@ -97,8 +96,9 @@ public:
 	StdCopyStrBuf Name;
 	float Length;
 
-private:
 	std::vector<StdMeshTrack*> Tracks; // bone-indexed
+
+private:
 	const class StdMeshSkeleton* OriginSkeleton; // saves, where the animation came from
 };
 

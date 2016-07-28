@@ -854,6 +854,7 @@ bool StdMeshMaterialProgram::AddParameterNames(const StdMeshMaterialShaderParame
 
 bool StdMeshMaterialProgram::CompileShader(StdMeshMaterialLoader& loader, C4Shader& shader, int ssc)
 {
+#ifndef USE_CONSOLE
 	// Add standard slices
 	loader.AddShaderSlices(shader, ssc);
 	// Add our slices
@@ -862,7 +863,6 @@ bool StdMeshMaterialProgram::CompileShader(StdMeshMaterialLoader& loader, C4Shad
 	// Construct the list of uniforms
 	std::vector<const char*> uniformNames;
 	std::vector<const char*> attributeNames;
-#ifndef USE_CONSOLE
 	uniformNames.resize(C4SSU_Count + ParameterNames.size() + 1);
 	uniformNames[C4SSU_ProjectionMatrix] = "projectionMatrix";
 	uniformNames[C4SSU_ModelViewMatrix] = "modelviewMatrix";
@@ -899,15 +899,15 @@ bool StdMeshMaterialProgram::CompileShader(StdMeshMaterialLoader& loader, C4Shad
 	attributeNames[C4SSA_BoneWeights0] = "oc_BoneWeights0";
 	attributeNames[C4SSA_BoneWeights1] = "oc_BoneWeights1";
 	attributeNames[C4SSA_Count] = NULL;
-#endif
 	// Compile the shader
 	StdCopyStrBuf name(Name);
-#ifndef USE_CONSOLE
 	if (ssc != 0) name.Append(":");
 	if (ssc & C4SSC_LIGHT) name.Append("Light");
 	if (ssc & C4SSC_MOD2) name.Append("Mod2");
-#endif
 	return shader.Init(name.getData(), &uniformNames[0], &attributeNames[0]);
+#else
+	return true;
+#endif
 }
 
 bool StdMeshMaterialProgram::Compile(StdMeshMaterialLoader& loader)
@@ -969,14 +969,19 @@ double StdMeshMaterialTextureUnit::Transformation::GetWaveXForm(double t) const
 }
 
 StdMeshMaterialTextureUnit::Tex::Tex(C4Surface* Surface)
-	: RefCount(1), Surf(Surface), Texture(*Surface->texture)
+	: RefCount(1)
+#ifndef USE_CONSOLE
+	, Surf(Surface), Texture(*Surface->texture)
+#endif
 {
 }
 
 StdMeshMaterialTextureUnit::Tex::~Tex()
 {
 	assert(RefCount == 0);
+#ifndef USE_CONSOLE
 	delete Surf;
+#endif
 }
 
 StdMeshMaterialTextureUnit::TexPtr::TexPtr(C4Surface* Surface)
@@ -1023,6 +1028,7 @@ StdMeshMaterialTextureUnit::StdMeshMaterialTextureUnit():
 
 void StdMeshMaterialTextureUnit::LoadTexture(StdMeshMaterialParserCtx& ctx, const char* texname)
 {
+#ifndef USE_CONSOLE
 	std::unique_ptr<C4Surface> surface(ctx.Loader.LoadTexture(texname)); // be exception-safe
 	if (!surface.get())
 		ctx.Error(StdCopyStrBuf("Could not load texture '") + texname + "'");
@@ -1031,6 +1037,9 @@ void StdMeshMaterialTextureUnit::LoadTexture(StdMeshMaterialParserCtx& ctx, cons
 		ctx.Error(StdCopyStrBuf("Texture '") + texname + "' is not quadratic");
 
 	Textures.push_back(TexPtr(surface.release()));
+#else
+	Textures.push_back(TexPtr(nullptr));
+#endif
 }
 
 void StdMeshMaterialTextureUnit::Load(StdMeshMaterialParserCtx& ctx)

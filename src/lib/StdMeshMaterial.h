@@ -18,8 +18,14 @@
 #define INC_StdMeshMaterial
 
 #include "lib/StdBuf.h"
+
+#ifndef USE_CONSOLE
 #include "graphics/C4Surface.h"
 #include "graphics/C4Shader.h"
+#else
+class C4Shader;
+class C4Surface;
+#endif
 
 #include <vector>
 #include <map>
@@ -162,7 +168,11 @@ public:
 	StdMeshMaterialProgram(const char* name, const StdMeshMaterialShader* fragment_shader, const StdMeshMaterialShader* vertex_shader, const StdMeshMaterialShader* geometry_shader);
 	bool AddParameterNames(const StdMeshMaterialShaderParameters& parameters); // returns true if some parameter names were not yet registered.
 
+#ifndef USE_CONSOLE
 	bool IsCompiled() const { return Shader.Initialised(); }
+#else
+	bool IsCompiled() const { return true; }
+#endif
 	bool Compile(StdMeshMaterialLoader& loader);
 
 	const C4Shader* GetShader(int ssc) const;
@@ -182,11 +192,13 @@ private:
 	const StdMeshMaterialShader* VertexShader;
 	const StdMeshMaterialShader* GeometryShader;
 
+#ifndef USE_CONSOLE
 	// Compiled shaders
 	C4Shader Shader;
 	C4Shader ShaderMod2;
 	C4Shader ShaderLight;
 	C4Shader ShaderLightMod2;
+#endif
 
 	// Filled as program references are encountered;
 	std::vector<StdCopyStrBuf> ParameterNames;
@@ -316,8 +328,10 @@ public:
 		// should be free functions instead. I also think the file
 		// loading/saving should be decoupled from the surfaces, so we
 		// can skip the surface here and simply use a C4TexRef. armin.
+#ifndef USE_CONSOLE
 		C4Surface* Surf;
 		C4TexRef& Texture;
+#endif
 	};
 
 	// Simple wrapper which handles refcounting of Tex
@@ -340,7 +354,9 @@ public:
 
 	bool HasTexture() const { return !Textures.empty(); }
 	size_t GetNumTextures() const { return Textures.size(); }
+#ifndef USE_CONSOLE
 	const C4TexRef& GetTexture(unsigned int i) const { return Textures[i].pTex->Texture; }
+#endif
 	bool HasFrameAnimation() const { return Duration > 0; }
 	bool HasTexCoordAnimation() const { return !Transformations.empty(); }
 

@@ -1090,6 +1090,29 @@ src/script/C4ValueMap.h
 
 target_link_libraries(libc4script libmisc)
 
+add_library(c4meshloader SHARED
+	src/lib/C4Real.cpp
+	src/lib/C4Real.h
+	src/lib/StdMeshLoader.cpp
+	src/lib/StdMeshLoader.h
+	src/lib/StdMeshLoaderBinary.cpp
+	src/lib/StdMeshLoaderBinaryChunks.cpp
+	src/lib/StdMeshLoaderBinaryChunks.h
+	src/lib/StdMeshLoaderXml.cpp
+	src/lib/StdMeshUpdate.cpp
+	src/lib/StdMeshUpdate.h
+	src/lib/StdMeshMaterial.cpp
+	src/lib/StdMeshMaterial.h
+	src/lib/StdMeshMath.cpp
+	src/lib/StdMeshMath.h
+	src/lib/StdMesh.cpp
+	src/lib/StdMesh.h
+	src/C4MeshLoader.cpp
+)
+
+target_compile_definitions(c4meshloader PRIVATE "USE_CONSOLE")
+target_link_libraries(c4meshloader libmisc ${TinyXML_LIBRARIES})
+
 add_executable(c4script
 	include/c4script/c4script.h
 	src/script/C4ScriptMain.cpp
