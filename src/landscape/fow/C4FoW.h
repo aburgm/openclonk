@@ -81,8 +81,14 @@ enum C4FoWFramebufShaderAttributes {
 };
 
 enum C4FoWRenderShaderUniforms {
-	C4FoWRSU_ProjectionMatrix, // projection matrix
-	C4FoWRSU_VertexOffset,     // offset applied to vertex (TODO: could be encoded in projection matrix)
+	C4FoWRSU_ProjectionMatrix,     // projection matrix
+	C4FoWRSU_VertexOffset,         // offset applied to vertex (TODO: could be encoded in projection matrix)
+	C4FoWRSU_LightSourcePosition,  // position of the light source (in same coordinates as C4FoWRSA_Position passed into the shader)
+	C4FoWRSU_LightDirection,       // direction of light
+	C4FoWRSU_LightAngularRangeCos, // Cosine of angular range of full light intensity
+	C4FoWRSU_LightAngularFadeCos,  // Cosine of angular range of fading light intensity
+	C4FoWRSU_LightOmniDistance,    // Distance until which light is omnidirectional
+	C4FoWRSU_LightOmniDistanceFade,// Distance until which light is fading omnidirectional
 
 	C4FoWRSU_Count
 };
@@ -118,6 +124,8 @@ public:
 	C4Shader *GetFramebufShader();
 	// Shader to use for rendering the lights
 	C4Shader *GetRenderShader();
+	// Shader to use for rendering the lights
+	C4Shader *GetDirectionalRenderShader();
 
 	void ClearDeletedLights();
 
@@ -138,6 +146,7 @@ private:
 	// Shader for updating the frame buffer
 	C4Shader FramebufShader;
 	C4Shader RenderShader;
+	C4Shader DirectionalRenderShader;
 #endif
 };
 
