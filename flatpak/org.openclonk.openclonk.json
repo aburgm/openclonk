@@ -1,0 +1,56 @@
+{
+  "app-id": "org.openclonk.openclonk",
+  "runtime": "org.kde.Platform",
+  "runtime-version": "master",
+  "sdk": "org.kde.Sdk",
+  "command": "openclonk",
+  "finish-args": [ 
+     "--socket=x11", 
+     "--socket=pulseaudio",
+     "--socket=wayland",
+     "--share=network",
+     "--share=ipc",
+     "--filesystem=~/.clonk/openclonk",
+     "--persist=.clonk/openclonk",
+     "--device=dri",
+     "--env=LD_LIBRARY_PATH=/app/lib64"
+  ],
+  "cleanup": [
+    "/include",
+    "/lib/pkgconfig",
+    "/bin/c4group",
+    "*.a"
+  ],
+  "rename-desktop-file": "openclonk.desktop",
+  "rename-icon": "openclonk",
+  "rename-appdata-file": "openclonk.appdata.xml",
+  "desktop-file-name-suffix": " (snapshot)",
+  "modules": [
+    {
+      "name": "glew",
+      "no-autogen": true,
+      "make-install-args": ["GLEW_PREFIX=/app", "GLEW_DEST=/app"],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://sourceforge.net/projects/glew/files/glew/2.0.0/glew-2.0.0.tgz",
+          "sha256": "c572c30a4e64689c342ba1624130ac98936d7af90c3103f9ce12b8a0c5736764"
+        }
+      ]
+    },
+    {
+      "name": "openclonk",
+      "cmake": true,
+      "build-options": {"cxxflags": "-DGLEW_NO_GLU"},
+      "sources": [
+        {
+          "type": "git",
+          "url": "git://git.openclonk.org/openclonk"
+        }
+      ],
+      "post-install": [
+        "ln -s /app/games/openclonk /app/bin/openclonk"
+      ]
+    }
+  ]
+}
